@@ -62,6 +62,7 @@ model Workspace {
   files       File[]
   conversations Conversation[]
   auditLogs   AuditLog[]
+  insights    Insight[]
 }
 
 model WorkspaceMember {
@@ -100,6 +101,7 @@ model File {
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploadedBy   User      @relation(fields: [uploadedById], references: [id])
   chunks       Chunk[]
+  insights     Insight[]
 
   @@index([workspaceId])
   @@index([status])
@@ -164,4 +166,30 @@ model AuditLog {
 
   @@index([workspaceId])
   @@index([createdAt])
+}
+
+enum InsightType {
+  FILE_SUMMARY
+  KEY_ISSUES
+  TREND
+  ANOMALY
+}
+
+model Insight {
+  id          String      @id @default(cuid())
+  workspaceId String
+  fileId      String?     // null for workspace-level insights
+  type        InsightType
+  title       String
+  content     String      // Markdown
+  metadata    Json?       // structured data e.g. issue list, trend data
+  isStale     Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  file        File?       @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, type])
+  @@index([fileId])
 }

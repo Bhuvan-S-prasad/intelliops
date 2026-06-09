@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useWorkspace } from '@/components/workspace-provider'
 import type { ActiveWorkspaceDetails } from '@/components/workspace-provider'
 import { Button } from '@/components/ui/button'
@@ -84,6 +84,8 @@ function ChatWorkspaceContent({
   activeWorkspace: ActiveWorkspaceDetails
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const urlConvId = searchParams.get('c')
 
   // Chat State
   const [conversations, setConversations] = React.useState<Conversation[]>([])
@@ -119,7 +121,7 @@ function ChatWorkspaceContent({
   }, [fetchConversationsList])
 
   // 3. Load active conversation messages
-  const loadConversationDetails = async (conversationId: string) => {
+  const loadConversationDetails = React.useCallback(async (conversationId: string) => {
     setIsMessagesLoading(true)
     try {
       const res = await fetch(`/api/workspaces/${activeWorkspace.id}/conversations/${conversationId}`)
@@ -132,7 +134,15 @@ function ChatWorkspaceContent({
     } finally {
       setIsMessagesLoading(false)
     }
-  }
+  }, [activeWorkspace.id])
+
+  // Load conversation details when c query param changes
+  React.useEffect(() => {
+    if (urlConvId && urlConvId !== activeConversationId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadConversationDetails(urlConvId)
+    }
+  }, [urlConvId, activeConversationId, loadConversationDetails])
 
   // 4. Create new conversation session
   const handleCreateConversation = async () => {
@@ -283,7 +293,7 @@ function ChatWorkspaceContent({
 
   // Markdown customized code renderer
   const markdownComponents = {
-    code({ className, children, node: _node, inline, style: _style, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean; node?: unknown }) {
+    code({ className, children, inline, ...props }: React.ComponentPropsWithoutRef<'code'> & { inline?: boolean; node?: unknown }) {
       const match = /language-(\w+)/.exec(className || '')
       const isInline = inline ?? !match
       
@@ -496,7 +506,7 @@ function ChatWorkspaceContent({
             </div>
           </>
         ) : (
-          <div className="flex-grow flex flex-col items-center justify-center text-center p-8 space-y-4">
+          <div className="grow flex flex-col items-center justify-center text-center p-8 space-y-4">
             <div className="h-12 w-12 bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center rounded-xl animate-pulse">
               <MessageSquare className="h-6 w-6" />
             </div>

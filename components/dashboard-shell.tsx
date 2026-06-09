@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useUser, SignOutButton } from '@clerk/nextjs'
 import { useWorkspace } from '@/components/workspace-provider'
 import { cn } from '@/lib/utils'
+import { CommandPalette } from '@/components/command-palette'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -52,10 +53,22 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
   const [isCollapsed, setIsCollapsed] = React.useState(false)
   const [isMobileOpen, setIsMobileOpen] = React.useState(false)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = React.useState(false)
+
+  React.useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setIsCommandPaletteOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [])
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Search', href: '/search', icon: Search },
+    { name: 'Search', href: activeWorkspace ? `/${activeWorkspace.slug}/search` : '/search', icon: Search },
     { name: 'Files', href: '/files', icon: FolderOpen },
     { name: 'Conversations', href: activeWorkspace ? `/${activeWorkspace.slug}/chat` : '/conversations', icon: MessageSquare },
     { name: 'Settings', href: '/settings', icon: Settings },
@@ -371,6 +384,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           {children}
         </main>
       </div>
+      <CommandPalette isOpen={isCommandPaletteOpen} onClose={() => setIsCommandPaletteOpen(false)} />
     </div>
   )
 }
