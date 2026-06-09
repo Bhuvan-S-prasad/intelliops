@@ -93,7 +93,6 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const loadData = React.useCallback(async () => {
     if (!isUserLoaded || !user) return
 
-    setIsLoading(true)
     const list = await fetchWorkspaces()
     setWorkspaces(list)
 
@@ -140,6 +139,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [isUserLoaded, user, fetchWorkspaces, fetchActiveWorkspaceDetails, pathname, router])
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData()
   }, [loadData])
 
