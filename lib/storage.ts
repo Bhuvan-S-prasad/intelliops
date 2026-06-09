@@ -41,3 +41,15 @@ export async function getSignedDownloadUrl(key: string, expiresIn = 3600) {
   if (error) throw error
   return data.signedUrl
 }
+
+export async function downloadFile(key: string): Promise<Buffer> {
+  if (!bucketName) throw new Error('SUPABASE_BUCKET_NAME is not configured')
+
+  const { data, error } = await supabase.storage
+    .from(bucketName)
+    .download(key)
+  if (error) throw error
+  
+  const arrayBuffer = await data.arrayBuffer()
+  return Buffer.from(arrayBuffer)
+}

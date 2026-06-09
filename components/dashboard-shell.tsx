@@ -35,7 +35,6 @@ import {
   ChevronRight,
   Menu,
   X,
-  Building2,
   User,
 } from 'lucide-react'
 
@@ -98,7 +97,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
               O
             </div>
             {!isCollapsed && (
-              <span className="font-semibold text-lg tracking-tight bg-gradient-to-r from-zinc-100 to-zinc-300 bg-clip-text text-transparent">
+              <span className="font-semibold text-lg tracking-tight bg-linear-to-r from-zinc-100 to-zinc-300 bg-clip-text text-transparent">
                 OpsIQ
               </span>
             )}
