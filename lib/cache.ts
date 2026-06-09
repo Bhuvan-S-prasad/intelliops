@@ -18,7 +18,7 @@ interface CacheItem<T> {
   expiresAt: number
 }
 
-const localCache = new Map<string, CacheItem<any>>()
+const localCache = new Map<string, CacheItem<unknown>>()
 
 export async function getWorkspaceFilesCache<T>(workspaceId: string): Promise<T | null> {
   const key = `cache:workspace:${workspaceId}:files`

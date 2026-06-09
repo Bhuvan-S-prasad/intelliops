@@ -57,7 +57,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Search', href: '/search', icon: Search },
     { name: 'Files', href: '/files', icon: FolderOpen },
-    { name: 'Conversations', href: '/conversations', icon: MessageSquare },
+    { name: 'Conversations', href: activeWorkspace ? `/${activeWorkspace.slug}/chat` : '/conversations', icon: MessageSquare },
     { name: 'Settings', href: '/settings', icon: Settings },
   ]
 
