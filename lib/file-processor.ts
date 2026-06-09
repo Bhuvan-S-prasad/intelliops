@@ -9,6 +9,7 @@ import { parseJson } from './parsers/json-parser'
 import { parseText } from './parsers/text-parser'
 import { parseLog } from './parsers/log-parser'
 import { randomUUID } from 'crypto'
+import { generateFileSummary } from './insight-generator'
 
 export async function processFile(fileId: string): Promise<void> {
   try {
@@ -106,6 +107,13 @@ export async function processFile(fileId: string): Promise<void> {
       },
     })
     console.log(`[file-processor] Successfully processed file ${fileId}`)
+
+    try {
+      await generateFileSummary(fileId)
+      console.log(`[file-processor] Successfully generated summary for file ${fileId}`)
+    } catch (summaryErr) {
+      console.error(`[file-processor] Failed to generate summary for file ${fileId}:`, summaryErr)
+    }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error during file ingestion'
     console.error(`[file-processor] Failed to process file ${fileId}:`, err)

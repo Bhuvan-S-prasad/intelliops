@@ -6,6 +6,7 @@ const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN
 
 let uploadRateLimit: Ratelimit | null = null
 let aiRateLimit: Ratelimit | null = null
+let insightRateLimit: Ratelimit | null = null
 
 if (redisUrl && redisToken) {
   const redis = new Redis({
@@ -25,6 +26,13 @@ if (redisUrl && redisToken) {
     limiter: Ratelimit.slidingWindow(30, '1 m'), // 30 AI requests per minute
     analytics: true,
     prefix: 'intelliops:ai_limit',
+  })
+
+  insightRateLimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(5, '1 h'), // 5 requests per hour
+    analytics: true,
+    prefix: 'intelliops:insight_limit',
   })
 } else {
   console.warn('Upstash Redis environment variables are missing (UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN). Rate limiting will be bypassed.')
@@ -70,6 +78,30 @@ export async function checkAiLimit(userId: string): Promise<{
   }
 
   const result = await aiRateLimit.limit(userId)
+  return {
+    success: result.success,
+    limit: result.limit,
+    remaining: result.remaining,
+    reset: result.reset,
+  }
+}
+
+export async function checkInsightLimit(workspaceId: string): Promise<{
+  success: boolean
+  limit: number
+  remaining: number
+  reset: number
+}> {
+  if (!insightRateLimit) {
+    return {
+      success: true,
+      limit: 5,
+      remaining: 5,
+      reset: Date.now() + 3600000,
+    }
+  }
+
+  const result = await insightRateLimit.limit(workspaceId)
   return {
     success: result.success,
     limit: result.limit,
