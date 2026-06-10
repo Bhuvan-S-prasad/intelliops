@@ -66,7 +66,7 @@ export async function processFile(fileId: string): Promise<void> {
     }
 
     // 5. Save chunks to DB (batch inserts in transactions of size 50)
-    const batchSize = 50
+    const batchSize = 25
     for (let i = 0; i < chunks.length; i += batchSize) {
       const chunkBatch = chunks.slice(i, i + batchSize)
       const embeddingBatch = embeddings.slice(i, i + batchSize)
@@ -96,7 +96,11 @@ export async function processFile(fileId: string): Promise<void> {
               NOW()
             )
           `
-        })
+        }),
+        {
+          maxWait: 15000,
+          timeout: 30000,
+        }
       )
     }
 
