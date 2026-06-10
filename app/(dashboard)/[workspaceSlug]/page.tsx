@@ -9,12 +9,10 @@ import { EmptyState } from '@/components/empty-state'
 import { SkeletonCard } from '@/components/skeleton'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
   FileText,
   MessageSquare,
   Users,
-  Search,
   ArrowRight,
   TrendingUp,
   BrainCircuit,
@@ -22,19 +20,14 @@ import {
   FileCode,
   Terminal,
   File,
-  AlertCircle,
   Clock,
   Sparkles,
-  Inbox,
   ArrowUpRight,
   CheckCircle2,
-  XCircle,
-  HelpCircle,
   UserPlus,
   Activity,
   Trash2,
   FolderOpen,
-  ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -46,6 +39,11 @@ import {
   Tooltip,
   Cell,
 } from 'recharts'
+
+interface ActivityMetadata {
+  fileName?: string
+  email?: string
+}
 
 interface Stats {
   totalFiles: number
@@ -61,7 +59,7 @@ interface Stats {
     action: string
     userId: string
     userName: string
-    metadata: any
+    metadata: ActivityMetadata
     createdAt: string
   }>
   filesByType: Record<string, number>
@@ -87,10 +85,17 @@ interface IssueItem {
   suggestedAction?: string
 }
 
+interface InsightMetadata {
+  issues?: IssueItem[]
+  summary?: string
+  trends?: Array<Record<string, string | number | boolean>>
+  anomalies?: Array<Record<string, string | number | boolean>>
+}
+
 interface Insight {
   id: string
   type: 'FILE_SUMMARY' | 'KEY_ISSUES' | 'TREND' | 'ANOMALY'
-  metadata: any
+  metadata: InsightMetadata
   createdAt: string
 }
 
@@ -149,37 +154,44 @@ function DashboardContent({ activeWorkspace }: { activeWorkspace: ActiveWorkspac
   const [insights, setInsights] = React.useState<Insight[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
 
-  const fetchData = React.useCallback(async () => {
-    try {
-      const [statsRes, filesRes, insightsRes] = await Promise.all([
-        fetch(`/api/workspaces/${activeWorkspace.id}/stats`),
-        fetch(`/api/workspaces/${activeWorkspace.id}/files`),
-        fetch(`/api/workspaces/${activeWorkspace.id}/insights`),
-      ])
+  React.useEffect(() => {
+    let isMounted = true
 
-      if (statsRes.ok) setStats(await statsRes.json())
-      if (filesRes.ok) {
-        const filesData = await filesRes.json()
-        setFiles(filesData.files || [])
+    const loadData = async () => {
+      try {
+        const [statsRes, filesRes, insightsRes] = await Promise.all([
+          fetch(`/api/workspaces/${activeWorkspace.id}/stats`),
+          fetch(`/api/workspaces/${activeWorkspace.id}/files`),
+          fetch(`/api/workspaces/${activeWorkspace.id}/insights`),
+        ])
+
+        if (!isMounted) return
+
+        if (statsRes.ok) setStats(await statsRes.json())
+        if (filesRes.ok) {
+          const filesData = await filesRes.json()
+          setFiles(filesData.files || [])
+        }
+        if (insightsRes.ok) {
+          const insightsData = await insightsRes.json()
+          setInsights(insightsData.insights || [])
+        }
+      } catch (err) {
+        console.error(err)
+        toast.error('Failed to load dashboard statistics')
+      } finally {
+        if (isMounted) setIsLoading(false)
       }
-      if (insightsRes.ok) {
-        const insightsData = await insightsRes.json()
-        setInsights(insightsData.insights || [])
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error('Failed to load dashboard statistics')
-    } finally {
-      setIsLoading(false)
+    }
+
+    loadData()
+    // Timeline refresh every 60s
+    const interval = setInterval(loadData, 60000)
+    return () => {
+      isMounted = false
+      clearInterval(interval)
     }
   }, [activeWorkspace.id])
-
-  React.useEffect(() => {
-    fetchData()
-    // Timeline refresh every 60s
-    const interval = setInterval(fetchData, 60000)
-    return () => clearInterval(interval)
-  }, [fetchData])
 
   if (isLoading) {
     return (
@@ -252,7 +264,7 @@ function DashboardContent({ activeWorkspace }: { activeWorkspace: ActiveWorkspac
     return `${diffDays}d ago`
   }
 
-  const getActionDetails = (action: string, metadata: any) => {
+  const getActionDetails = (action: string, metadata?: ActivityMetadata) => {
     switch (action) {
       case 'file.upload':
         return {
@@ -467,7 +479,7 @@ function DashboardContent({ activeWorkspace }: { activeWorkspace: ActiveWorkspac
                   return (
                     <div key={log.id} className="relative group">
                       {/* Timeline Dot Icon */}
-                      <span className={`absolute -left-[35px] top-0 flex h-6 w-6 items-center justify-center rounded-lg border text-xs font-semibold ${details.color}`}>
+                      <span className={`absolute left-[-35px] top-0 flex h-6 w-6 items-center justify-center rounded-lg border text-xs font-semibold ${details.color}`}>
                         <ActionIcon className="h-3 w-3" />
                       </span>
                       <div className="space-y-1">

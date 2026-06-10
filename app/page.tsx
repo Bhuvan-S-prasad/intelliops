@@ -219,10 +219,13 @@ export default function IntelliOpsLanding() {
   );
 
   useEffect(() => {
-    setMounted(true);
+    const animFrame = requestAnimationFrame(() => {
+      setMounted(true);
+    });
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("mousemove", handleMouse, { passive: true });
     return () => {
+      cancelAnimationFrame(animFrame);
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("mousemove", handleMouse);
     };

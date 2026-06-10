@@ -47,7 +47,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const {
     workspaces,
     activeWorkspace,
-    currentUserRole,
     isLoading,
     switchWorkspace,
     members,
@@ -429,19 +428,19 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   )
 
   return (
-    <div className="flex min-h-screen bg-zinc-950 font-sans">
+    <div className="flex h-screen overflow-hidden bg-zinc-950 font-sans">
       {/* Desktop Sidebar (Persistent) */}
       <aside
         className={cn(
-          "hidden md:block shrink-0 transition-all duration-300 ease-in-out",
+          "hidden md:block shrink-0 transition-all duration-300 ease-in-out h-full",
           isCollapsed ? "w-16" : "w-60"
         )}
       >
         {sidebarContent}
       </aside>
-
+ 
       {/* Mobile Header + Menu */}
-      <div className="flex w-full flex-col min-w-0">
+      <div className="flex w-full flex-col min-w-0 h-full">
         <header className="flex h-14 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-4 md:hidden backdrop-blur-md sticky top-0 z-40">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 font-bold text-white">
@@ -474,8 +473,10 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           </div>
         )}
 
-        {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 text-zinc-100 bg-zinc-950">
+        <main className={cn(
+          "flex-1 overflow-y-auto text-zinc-100 bg-zinc-950",
+          pathname?.endsWith('/chat') ? "p-4 h-full" : "px-4 py-6 md:px-8 md:py-8"
+        )}>
           {children}
         </main>
       </div>

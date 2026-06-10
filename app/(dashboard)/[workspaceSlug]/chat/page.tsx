@@ -328,9 +328,27 @@ function ChatWorkspaceContent({
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] items-stretch overflow-hidden border border-zinc-800 bg-zinc-950 rounded-xl">
-      {/* 1. Left Sidebar: Conversations directory */}
-      <aside className="w-70 shrink-0 border-r border-zinc-800 bg-zinc-900/20 flex flex-col justify-between">
+    <>
+      <style>{`
+        .chat-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .chat-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .chat-scrollbar::-webkit-scrollbar-thumb {
+          background: #27272a;
+          border-radius: 9999px;
+        }
+        .chat-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #3f3f46;
+        }
+      `}</style>
+
+      <div className="flex h-full w-full items-stretch overflow-hidden border border-zinc-850/60 bg-zinc-950/60 rounded-xl shadow-lg">
+        {/* 1. Left Sidebar: Conversations directory */}
+        <aside className="w-70 shrink-0 border-r border-zinc-850 bg-zinc-950/40 flex flex-col justify-between">
         <div className="p-4 flex-1 flex flex-col min-h-0">
           <Button
             onClick={handleCreateConversation}
@@ -340,7 +358,7 @@ function ChatWorkspaceContent({
             New Conversation
           </Button>
 
-          <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0 pr-1 chat-scrollbar">
             {isConversationsLoading ? (
               <div className="flex justify-center items-center h-20">
                 <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
@@ -389,7 +407,7 @@ function ChatWorkspaceContent({
         {activeConversationId ? (
           <>
             {/* Messages body */}
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 chat-scrollbar">
               {isMessagesLoading ? (
                 <div className="flex justify-center items-center h-full">
                   <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
@@ -544,5 +562,6 @@ function ChatWorkspaceContent({
         )}
       </section>
     </div>
+    </>
   )
 }
