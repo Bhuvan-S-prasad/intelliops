@@ -1,14 +1,28 @@
-# IntelliOps
+<div align="center">
 
-[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
-[![Clerk](https://img.shields.io/badge/Clerk-Auth-6C47FF?style=for-the-badge&logo=clerk)](https://clerk.com/)
-[![Vercel AI SDK](https://img.shields.io/badge/Vercel_AI-SDK-black?style=for-the-badge)](https://sdk.vercel.ai/docs)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+# ⚡ IntelliOps
 
-**IntelliOps** is an AI-native operational intelligence platform that consolidates fragmented tools into a unified operational layer. It allows teams to upload system logs, database sheets, reports, and code documents, run advanced semantic queries grounded in their datasets, and monitor operational health through real-time telemetry.
+**An AI-native operational intelligence platform unifying systems into a single operational layer.**
+
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+<br />
+[![Neon](https://img.shields.io/badge/Neon-PostgreSQL-00E599?style=for-the-badge&logo=postgresql&logoColor=black)](https://neon.tech/)
+[![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
+[![Clerk](https://img.shields.io/badge/Clerk-Auth-6C47FF?style=for-the-badge&logo=clerk&logoColor=white)](https://clerk.com/)
+[![Upstash Redis](https://img.shields.io/badge/Upstash-Redis-FF4438?style=for-the-badge&logo=redis&logoColor=white)](https://upstash.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Storage-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+<br />
+[![Vercel AI SDK](https://img.shields.io/badge/Vercel_AI_SDK-Core-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://sdk.vercel.ai/docs)
+[![Zod](https://img.shields.io/badge/Zod-Validation-3068b7?style=for-the-badge&logo=zod&logoColor=white)](https://zod.dev/)
+
+</div>
+
+<br />
+
+**IntelliOps** allows teams to upload system logs, database sheets, reports, and code documents, run advanced semantic queries grounded in their datasets, and monitor operational health through real-time telemetry.
 
 ---
 
@@ -27,17 +41,23 @@
 ### 1. Data Ingestion Pipeline
 When a user uploads a document, it goes through an asynchronous processing flow:
 
-```mermaid
-graph TD
-    A[File Upload] --> B[Storage Bucket]
-    B --> C[File Processor Worker]
-    C --> D{File Type?}
-    D -->|PDF| E[pdf-parse Extraction]
-    D -->|CSV| F[PapaParse Tabular Extraction]
-    D -->|LOG/JSON/TXT| G[Structure-Aware Parsers]
-    E & F & G --> H[Sliding-Window Sentence-Level Chunker]
-    H --> I[NVIDIA Llama Nemotron Embeddings Batching]
-    I --> J[Prisma Bulk Vector Insertion]
+```text
+[ File Upload ] 
+       ↓
+[ Storage Bucket ] 
+       ↓
+[ File Processor Worker ]
+       ↓
+( File Type Detection )
+  ├── PDF  ➔ [ pdf-parse Extraction ]
+  ├── CSV  ➔ [ PapaParse Tabular Extraction ]
+  └── TXT  ➔ [ Structure-Aware Parsers ]
+       ↓
+[ Sliding-Window Sentence-Level Chunker ]
+       ↓
+[ NVIDIA Llama Nemotron Embeddings Batching ]
+       ↓
+[ Prisma Bulk Vector Insertion ]
 ```
 
 * **Chunking & Overlapping:** Documents are split into segments matching paragraph and sentence boundaries. If a chunk exceeds `maxTokens` (512), it splits and uses a sliding window overlap of 64 tokens to preserve semantic context across chunk splits.
@@ -48,15 +68,22 @@ graph TD
 ### 2. The Advanced RAG Retrieval Flow
 To minimize hallucination and ensure precise matches for system variables and logs, query execution uses an advanced retrieval workflow:
 
-```mermaid
-graph TD
-    A[User Query] --> B[LLM Query Rewriter]
-    B -->|Expanded Query| C[Dense Vector Search]
-    B -->|Expanded Query| D[PostgreSQL Full-Text Search]
-    C -->|Top 15 Chunks| E[Reciprocal Rank Fusion RRF]
-    D -->|Top 15 Chunks| E
-    E -->|Top 15 Merged Candidates| F[LLM-Based Reranker]
-    F -->|Top 6 Reranked Contexts| G[Streamed Response Generator]
+```text
+[ User Query ]
+       ↓
+[ LLM Query Rewriter ]
+       ↓ (Expanded Query)
+  ┌────┴────┐
+  │         │
+[ Dense ] [ Sparse FTS ]
+  │         │ 
+  └────┬────┘ (Top 15 Chunks Each)
+       ↓
+[ Reciprocal Rank Fusion (RRF) ]
+       ↓ (Top 15 Merged)
+[ LLM-Based Reranker ]
+       ↓ (Top 6 Contexts)
+[ Streamed Response Generator ]
 ```
 
 1. **Query Rewriting:** The user's query is expanded using an LLM (e.g. converting *"why did deploy fail?"* into search terms like `"Error", "deployment", "pipeline aborted", "failed"`).
