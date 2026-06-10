@@ -423,7 +423,7 @@ function MembersSettings({
                 Invite Member
               </CardTitle>
               <CardDescription className="text-xs text-zinc-400">
-                Invite a user to join this workspace. They must have a registered OpsIQ account.
+                Invite a user to join this workspace. They must have a registered IntelliOps account.
               </CardDescription>
             </CardHeader>
             <CardContent className="px-6 pb-6 pt-0 flex flex-col md:flex-row gap-4 items-end">

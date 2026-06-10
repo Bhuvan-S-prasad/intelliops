@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "OpsIQ — Operational Intelligence, Organised",
+  title: "IntelliOps — Operational Intelligence, Organised",
   description:
     "AI-native operational intelligence platform. Upload documents, ask questions, and get answers with full source traceability.",
 };

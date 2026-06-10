@@ -1,304 +1,2196 @@
-'use client'
+"use client";
 
-import * as React from 'react'
-import Link from 'next/link'
-import { Show, SignInButton, SignUpButton } from '@clerk/nextjs'
-import { Button } from '@/components/ui/button'
-import { ArrowRight, ArrowUpRight } from 'lucide-react'
+import Link from "next/link";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useUser, UserButton } from "@clerk/nextjs";
 
-const LOG_LINES = [
-  { t: 'sys', msg: 'OpsIQ daemon v2.4.1 started' },
-  { t: 'info', msg: 'Watching /workspace/uploads for new files' },
-  { t: 'file', msg: 'Received: incident-report-2024-11.pdf (1.2 MB)' },
-  { t: 'index', msg: 'Chunking document into 84 segments...' },
-  { t: 'embed', msg: 'Generating embeddings [████████░░] 80%' },
-  { t: 'embed', msg: 'Generating embeddings [██████████] 100%' },
-  { t: 'ok', msg: 'Indexed: incident-report-2024-11.pdf' },
-  { t: 'file', msg: 'Received: api-gateway-logs-oct.json (38 MB)' },
-  { t: 'index', msg: 'Parsing 142,884 log entries...' },
-  { t: 'warn', msg: 'Anomaly cluster detected at 2024-10-14T03:22Z' },
-  { t: 'ok', msg: 'Indexed: api-gateway-logs-oct.json' },
-  { t: 'query', msg: 'User query: "show p0 incidents in Q4"' },
-  { t: 'search', msg: 'Hybrid search across 3 sources → 12 matches' },
-  { t: 'ai', msg: 'Generating grounded response with citations...' },
-  { t: 'ok', msg: 'Response ready (847ms)' },
-  { t: 'file', msg: 'Received: db-schema-v7.sql (204 KB)' },
-  { t: 'index', msg: 'Parsing schema: 63 tables, 418 columns' },
-  { t: 'ok', msg: 'Indexed: db-schema-v7.sql' },
-  { t: 'query', msg: 'User query: "foreign keys referencing users table"' },
-  { t: 'search', msg: 'Structural search → 9 exact matches found' },
-  { t: 'ok', msg: 'Response ready (312ms)' },
-]
+/* ─── Scroll-reveal hook ─── */
+const useInView = (threshold = 0.15) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setInView(true);
+      },
+      { threshold }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return [ref, inView] as const;
+};
 
-const TAG_COLORS: Record<string, string> = {
-  sys: 'text-zinc-500',
-  info: 'text-zinc-500',
-  file: 'text-indigo-400',
-  index: 'text-amber-400',
-  embed: 'text-amber-400',
-  ok: 'text-emerald-400',
-  warn: 'text-orange-400',
-  query: 'text-violet-400',
-  search: 'text-violet-400',
-  ai: 'text-indigo-400',
-}
+/* ─── Reveal wrapper ─── */
+const Reveal = ({
+  children,
+  delay = 0,
+  style: extraStyle = {},
+}: {
+  children: React.ReactNode;
+  delay?: number;
+  style?: React.CSSProperties;
+}) => {
+  const [ref, inView] = useInView();
+  return (
+    <div
+      ref={ref}
+      style={{
+        opacity: inView ? 1 : 0,
+        transform: inView ? "translateY(0)" : "translateY(28px)",
+        transition: `opacity 0.7s ease ${delay}s, transform 0.7s ease ${delay}s`,
+        ...extraStyle,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 
-function Terminal() {
-  const [visibleLines, setVisibleLines] = React.useState<number>(0)
-  const bottomRef = React.useRef<HTMLDivElement>(null)
+/* ─── Animated metric counter ─── */
+const MetricTicker = ({
+  label,
+  value,
+  unit,
+  delay = 0,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  delay?: number;
+}) => {
+  const [display, setDisplay] = useState(0);
+  const [ref, inView] = useInView();
 
-  React.useEffect(() => {
-    if (visibleLines >= LOG_LINES.length) return
-    const delay = visibleLines === 0 ? 600 : Math.random() * 280 + 120
-    const t = setTimeout(() => setVisibleLines((v) => v + 1), delay)
-    return () => clearTimeout(t)
-  }, [visibleLines])
-
-  React.useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [visibleLines])
+  useEffect(() => {
+    if (!inView) return;
+    let raf: number;
+    const timeout = setTimeout(() => {
+      const start = performance.now();
+      const duration = 1400;
+      const tick = (now: number) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setDisplay(Math.floor(eased * value));
+        if (progress < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }, delay);
+    return () => {
+      clearTimeout(timeout);
+      cancelAnimationFrame(raf);
+    };
+  }, [inView, value, delay]);
 
   return (
-    <div className="relative w-full rounded-none border border-zinc-800 bg-zinc-950 overflow-hidden font-mono text-xs leading-relaxed">
-      {/* Window chrome */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 bg-zinc-900/60">
-        <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
-        <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
-        <span className="h-2.5 w-2.5 rounded-full bg-zinc-700" />
-        <span className="ml-3 text-zinc-600 text-[10px] tracking-widest uppercase">opsiq — live indexing</span>
+    <div ref={ref} style={{ borderTop: "1px solid #27272a", padding: "24px 0" }}>
+      <div
+        style={{
+          fontSize: 11,
+          color: "#52525b",
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          marginBottom: 8,
+        }}
+      >
+        {label}
       </div>
-
-      {/* Log output */}
-      <div className="p-4 space-y-1 h-72 overflow-y-auto scrollbar-none">
-        {LOG_LINES.slice(0, visibleLines).map((line, i) => (
-          <div key={i} className="flex gap-3 items-start">
-            <span className={`shrink-0 w-12 text-right uppercase text-[9px] tracking-wider font-semibold mt-px ${TAG_COLORS[line.t] ?? 'text-zinc-500'}`}>
-              {line.t}
-            </span>
-            <span className="text-zinc-300">{line.msg}</span>
-          </div>
-        ))}
-        {visibleLines < LOG_LINES.length && (
-          <div className="flex gap-3 items-start">
-            <span className="shrink-0 w-12" />
-            <span className="text-zinc-300">
-              <span className="inline-block w-1.5 h-3.5 bg-indigo-400 animate-pulse align-middle" />
-            </span>
-          </div>
-        )}
-        <div ref={bottomRef} />
+      <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+        <span
+          style={{
+            fontSize: 40,
+            fontWeight: 600,
+            color: "#f4f4f5",
+            lineHeight: 1,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {display.toLocaleString()}
+        </span>
+        <span style={{ fontSize: 16, color: "#6366f1" }}>{unit}</span>
       </div>
     </div>
-  )
-}
+  );
+};
 
-const FEATURES = [
-  {
-    label: 'Ingest anything',
-    desc: 'PDFs, JSON dumps, SQL schemas, YAML configs, raw logs. OpsIQ indexes every byte without format negotiation.',
-    accent: 'bg-indigo-500',
-  },
-  {
-    label: 'Semantic + structural search',
-    desc: 'Ask in plain English or filter by structure. Hybrid retrieval surfaces the right passage from the right document in milliseconds.',
-    accent: 'bg-violet-500',
-  },
-  {
-    label: 'Grounded AI responses',
-    desc: 'Every answer is anchored to source passages. No hallucinations — every claim cites the exact document and line.',
-    accent: 'bg-indigo-500',
-  },
-  {
-    label: 'Workspace context',
-    desc: 'All your files, all your queries, one persistent context. Ask follow-up questions across documents without re-uploading.',
-    accent: 'bg-violet-500',
-  },
-]
+/* ─── Terminal command row ─── */
+const CommandRow = ({
+  cmd,
+  result,
+  delay,
+}: {
+  cmd: string;
+  result: string | null;
+  delay: number;
+}) => {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setShow(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
 
-export default function Home() {
+  if (!show) return null;
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col selection:bg-indigo-500/20 selection:text-indigo-200">
-
-      {/* ─── Navbar ─────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-zinc-900 bg-zinc-950/90 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="h-6 w-6 rounded bg-indigo-600 flex items-center justify-center text-[11px] font-bold text-white tracking-tight">
-              O
-            </div>
-            <span className="text-sm font-semibold tracking-tight text-zinc-100">OpsIQ</span>
-          </div>
-
-          <nav className="hidden md:flex items-center gap-8 text-sm text-zinc-500">
-            <a href="#features" className="hover:text-zinc-200 transition-colors">Features</a>
-            <a href="#" className="hover:text-zinc-200 transition-colors">Docs</a>
-            <a href="#" className="hover:text-zinc-200 transition-colors">Changelog</a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Show when="signed-in">
-              <Link href="/dashboard">
-                <button className="flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-100 transition-colors font-medium">
-                  Dashboard <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </Link>
-            </Show>
-            <Show when="signed-out">
-              <SignInButton mode="modal">
-                <button className="text-sm text-zinc-400 hover:text-zinc-100 transition-colors font-medium">
-                  Sign in
-                </button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <button className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3.5 py-1.5 rounded transition-colors">
-                  Get started <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              </SignUpButton>
-            </Show>
-          </div>
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ color: "#6366f1", fontFamily: "monospace", fontSize: 13 }}>›</span>
+        <span style={{ color: "#e4e4e7", fontFamily: "monospace", fontSize: 13 }}>{cmd}</span>
+      </div>
+      {result && (
+        <div
+          style={{
+            marginLeft: 18,
+            marginTop: 4,
+            color: "#52525b",
+            fontFamily: "monospace",
+            fontSize: 12,
+          }}
+        >
+          {result}
         </div>
-      </header>
+      )}
+    </div>
+  );
+};
 
-      {/* ─── Hero ────────────────────────────────────────── */}
-      <main className="flex-1">
-        <section className="max-w-7xl mx-auto px-6 pt-20 pb-24 grid lg:grid-cols-2 gap-16 items-center">
+/* ─── Stable bar heights (no Math.random in render) ─── */
+const BAR_HEIGHTS = [
+  32, 48, 28, 52, 38, 44, 36, 58, 42, 30, 50, 46, 34, 40, 54, 38, 28, 48, 36, 52, 44, 30, 56, 40,
+  34, 48, 42, 38, 50, 44, 32, 40, 56, 62, 70, 68, 64, 58, 46, 42, 38, 44, 36, 52, 40, 34, 48, 30,
+];
 
-          {/* Left: copy */}
-          <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 border border-zinc-800 rounded px-2.5 py-1 text-[11px] font-medium text-zinc-400 tracking-wide uppercase">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Now in public beta
+/* ─── Workspace SVG node ─── */
+const WorkspaceNode = ({
+  label,
+  x,
+  y,
+  type,
+}: {
+  label: string;
+  x: number;
+  y: number;
+  type: "hub" | "team" | "agent";
+}) => {
+  const fills = { hub: "#6366f1", team: "#3f3f46", agent: "#18181b" };
+  const strokes = { hub: "#818cf8", team: "#3f3f46", agent: "#27272a" };
+  const sizes = { hub: 10, team: 7, agent: 5 };
+  return (
+    <g>
+      <circle
+        cx={x}
+        cy={y}
+        r={sizes[type] ?? 6}
+        fill={fills[type] ?? "#27272a"}
+        stroke={strokes[type] ?? "#27272a"}
+        strokeWidth={type === "hub" ? 1.5 : 0.5}
+      />
+      {label && (
+        <text
+          x={x}
+          y={y - 14}
+          textAnchor="middle"
+          fill="#71717a"
+          fontSize="9"
+          fontFamily="ui-sans-serif, system-ui, sans-serif"
+        >
+          {label}
+        </text>
+      )}
+    </g>
+  );
+};
+
+/* ══════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════ */
+export default function IntelliOpsLanding() {
+  const { isSignedIn } = useUser();
+  const [scrollY, setScrollY] = useState(0);
+  const [cursorPos, setCursorPos] = useState({ x: -100, y: -100 });
+  const [activeTab, setActiveTab] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  const handleScroll = useCallback(() => setScrollY(window.scrollY), []);
+  const handleMouse = useCallback(
+    (e: MouseEvent) => setCursorPos({ x: e.clientX, y: e.clientY }),
+    []
+  );
+
+  useEffect(() => {
+    setMounted(true);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("mousemove", handleMouse, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("mousemove", handleMouse);
+    };
+  }, [handleScroll, handleMouse]);
+
+  const navScrolled = mounted && scrollY > 40;
+  const tabs = ["Orchestration", "Agents", "Intelligence", "Workspaces"];
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body { background: #09090b; }
+        ::selection { background: #6366f1; color: #fff; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #09090b; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 2px; }
+        @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes scan    { 0%{transform:translateY(-2px)} 100%{transform:translateY(100vh)} }
+        @keyframes pulse   { 0%,100%{opacity:.4} 50%{opacity:1} }
+        @keyframes fadeUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+        .intelliops-nav-link {
+          color: #71717a; text-decoration: none; font-size: 14px; transition: color .2s;
+        }
+        .intelliops-nav-link:hover { color: #f4f4f5; }
+        .intelliops-cta-btn {
+          background: #6366f1; color: #fff; padding: 8px 18px;
+          border-radius: 4px; font-size: 13px; font-weight: 500;
+          text-decoration: none; transition: background .2s; display: inline-block;
+        }
+        .intelliops-cta-btn:hover { background: #818cf8; }
+      `}</style>
+
+      <div
+        style={{
+          background: "#09090b",
+          color: "#f4f4f5",
+          fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+          overflowX: "hidden",
+        }}
+      >
+        {/* Custom cursor — client only */}
+        {mounted && (
+          <div
+            style={{
+              position: "fixed",
+              pointerEvents: "none",
+              zIndex: 9999,
+              width: 6,
+              height: 6,
+              background: "#6366f1",
+              borderRadius: "50%",
+              left: cursorPos.x,
+              top: cursorPos.y,
+              transform: "translate(-50%,-50%)",
+              mixBlendMode: "screen",
+            }}
+          />
+        )}
+
+        {/* ══ NAV ══ */}
+        <nav
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            height: 60,
+            borderBottom: navScrolled ? "1px solid #18181b" : "1px solid transparent",
+            background: navScrolled ? "rgba(9,9,11,.9)" : "transparent",
+            backdropFilter: navScrolled ? "blur(12px)" : "none",
+            transition: "border-color .3s, background .3s",
+            padding: "0 48px",
+            display: "flex",
+            alignItems: "center",
+            gap: 32,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: "auto" }}>
+            <div style={{ width: 20, height: 20, position: "relative", flexShrink: 0 }}>
+              <div
+                style={{ width: 8, height: 8, background: "#6366f1", position: "absolute", top: 0, left: 0 }}
+              />
+              <div
+                style={{ width: 8, height: 8, background: "#3f3f46", position: "absolute", bottom: 0, right: 0 }}
+              />
             </div>
-
-            <div className="space-y-5">
-              <h1 className="text-5xl lg:text-6xl font-semibold tracking-tight leading-[1.05] text-zinc-100">
-                Your ops data,<br />
-                <span className="text-indigo-400">finally searchable.</span>
-              </h1>
-              <p className="text-base text-zinc-400 leading-relaxed max-w-md">
-                Upload logs, schemas, configs, and incident reports. Search in plain English. Chat with AI that cites its sources. Every answer, grounded.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Show when="signed-out">
-                <SignUpButton mode="modal">
-                  <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-5 py-2.5 rounded transition-colors">
-                    Start free <ArrowRight className="h-4 w-4" />
-                  </button>
-                </SignUpButton>
-                <SignInButton mode="modal">
-                  <button className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors font-medium">
-                    Sign in to workspace
-                  </button>
-                </SignInButton>
-              </Show>
-              <Show when="signed-in">
-                <Link href="/dashboard">
-                  <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-5 py-2.5 rounded transition-colors">
-                    Open dashboard <ArrowRight className="h-4 w-4" />
-                  </button>
+            <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.02em" }}>IntelliOps</span>
+          </div>
+          {["Platform", "Agents", "Enterprise", "Docs"].map((l) => (
+            <Link key={l} href="/" className="intelliops-nav-link">
+              {l}
+            </Link>
+          ))}
+          <div style={{ display: "flex", gap: 16, alignItems: "center", marginLeft: "auto" }}>
+            {mounted && isSignedIn ? (
+              <>
+                <Link href="/dashboard" className="intelliops-cta-btn">
+                  Dashboard
                 </Link>
-              </Show>
-            </div>
+                <UserButton />
+              </>
+            ) : (
+              <Link href="/sign-in" className="intelliops-cta-btn">
+                Sign in
+              </Link>
+            )}
+          </div>
+        </nav>
 
-            {/* Social proof strip */}
-            <div className="flex items-center gap-6 pt-2 border-t border-zinc-900">
+        {/* ══ HERO ══ */}
+        <section
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            position: "relative",
+            padding: "120px 48px 80px",
+            overflow: "hidden",
+          }}
+        >
+          {/* Grid background */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              backgroundImage:
+                "linear-gradient(#18181b 1px, transparent 1px), linear-gradient(90deg, #18181b 1px, transparent 1px)",
+              backgroundSize: "72px 72px",
+              opacity: 0.5,
+            }}
+          />
+          {/* Scan line — client only to avoid hydration mismatch */}
+          {mounted && (
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: 0,
+                height: 1,
+                background: "linear-gradient(90deg, transparent, #6366f1, transparent)",
+                opacity: 0.5,
+                animation: "scan 7s linear infinite",
+              }}
+            />
+          )}
+
+          <div style={{ position: "relative", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 420px",
+                gap: 80,
+                alignItems: "center",
+              }}
+            >
+              {/* Left — headline */}
               <div>
-                <div className="text-xl font-semibold text-zinc-100">142k+</div>
-                <div className="text-xs text-zinc-600 mt-0.5">documents indexed</div>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    border: "1px solid #27272a",
+                    borderRadius: 2,
+                    padding: "6px 14px",
+                    marginBottom: 40,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#22c55e",
+                      animation: mounted ? "pulse 2s ease infinite" : "none",
+                    }}
+                  />
+                  <span style={{ fontSize: 12, color: "#71717a", letterSpacing: "0.06em" }}>
+                    OPERATIONAL INTELLIGENCE LAYER
+                  </span>
+                </div>
+
+                <h1
+                  style={{
+                    fontSize: "clamp(48px, 6vw, 84px)",
+                    fontWeight: 600,
+                    lineHeight: 1.0,
+                    letterSpacing: "-0.04em",
+                    marginBottom: 32,
+                    color: "#fafafa",
+                  }}
+                >
+                  The operating
+                  <br />
+                  <span style={{ color: "#6366f1" }}>system</span> for
+                  <br />
+                  modern teams.
+                </h1>
+
+                <p
+                  style={{
+                    fontSize: 18,
+                    color: "#71717a",
+                    lineHeight: 1.7,
+                    maxWidth: 480,
+                    marginBottom: 48,
+                  }}
+                >
+                  IntelliOps unifies workspaces, projects, knowledge, AI agents, and workflows into
+                  a single operational layer — replacing fragmented tooling with cohesive
+                  intelligence.
+                </p>
+
+                <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                  <button
+                    style={{
+                      background: "#6366f1",
+                      color: "#fff",
+                      border: "none",
+                      padding: "14px 28px",
+                      borderRadius: 4,
+                      fontSize: 15,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Request early access
+                  </button>
+                  <button
+                    style={{
+                      background: "transparent",
+                      color: "#71717a",
+                      border: "1px solid #27272a",
+                      padding: "14px 28px",
+                      borderRadius: 4,
+                      fontSize: 15,
+                      cursor: "pointer",
+                    }}
+                  >
+                    See it in action →
+                  </button>
+                </div>
               </div>
-              <div className="h-8 w-px bg-zinc-800" />
-              <div>
-                <div className="text-xl font-semibold text-zinc-100">&lt;400ms</div>
-                <div className="text-xs text-zinc-600 mt-0.5">median query time</div>
-              </div>
-              <div className="h-8 w-px bg-zinc-800" />
-              <div>
-                <div className="text-xl font-semibold text-zinc-100">SOC 2</div>
-                <div className="text-xs text-zinc-600 mt-0.5">type II compliant</div>
+
+              {/* Right — terminal */}
+              <div
+                style={{
+                  background: "#0c0c0e",
+                  border: "1px solid #1c1c1e",
+                  borderRadius: 6,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    borderBottom: "1px solid #18181b",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  {["#3f3f46", "#3f3f46", "#3f3f46"].map((c, i) => (
+                    <div
+                      key={i}
+                      style={{ width: 10, height: 10, borderRadius: "50%", background: c }}
+                    />
+                  ))}
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "#52525b",
+                      marginLeft: 8,
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    intelliops — command center
+                  </span>
+                </div>
+                <div style={{ padding: "20px 20px 20px" }}>
+                  <CommandRow
+                    cmd="ops init workspace --team=engineering"
+                    result="→ Workspace initialized · 4 agents deployed"
+                    delay={400}
+                  />
+                  <CommandRow
+                    cmd="ops run agent --task=incident-triage"
+                    result="→ Scanning 847 signals · Prioritizing 3 critical"
+                    delay={1200}
+                  />
+                  <CommandRow
+                    cmd="ops knowledge index --source=confluence"
+                    result="→ 12,400 documents indexed · Embeddings ready"
+                    delay={2100}
+                  />
+                  <CommandRow
+                    cmd="ops workflow trigger --id=deploy"
+                    result="→ Pipeline started · ETA 4m 30s"
+                    delay={3000}
+                  />
+                  <CommandRow cmd="ops status" result={null} delay={4000} />
+
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: "12px 16px",
+                      background: "#0f0f12",
+                      borderRadius: 4,
+                    }}
+                  >
+                    {[
+                      ["Agents active", "12 / 12"],
+                      ["Workflows running", "8"],
+                      ["Signals processed", "2,847"],
+                      ["Uptime", "99.97%"],
+                    ].map(([k, v]) => (
+                      <div
+                        key={k}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: 6,
+                          fontSize: 12,
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        <span style={{ color: "#52525b" }}>{k}</span>
+                        <span style={{ color: "#a1a1aa" }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {mounted && (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 4,
+                        marginTop: 16,
+                        alignItems: "center",
+                      }}
+                    >
+                      <span style={{ color: "#6366f1", fontFamily: "monospace", fontSize: 13 }}>
+                        ›
+                      </span>
+                      <span style={{ fontFamily: "monospace", fontSize: 13, color: "#e4e4e7" }}>
+                        _
+                      </span>
+                      <span
+                        style={{
+                          animation: "blink 1s step-end infinite",
+                          color: "#6366f1",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        |
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Right: live terminal */}
-          <div className="relative">
-            {/* Subtle glow behind terminal */}
-            <div className="absolute -inset-px rounded bg-indigo-500/5 blur-2xl pointer-events-none" />
-            <Terminal />
-            <div className="mt-3 flex items-center gap-2 text-[11px] text-zinc-600">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live indexing pipeline — runs on every upload
+          {/* Scroll cue */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 48,
+              left: "50%",
+              transform: "translateX(-50%)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 11, color: "#3f3f46", letterSpacing: "0.08em" }}>SCROLL</span>
+            <div
+              style={{
+                width: 1,
+                height: 40,
+                background: "linear-gradient(to bottom, #6366f1, transparent)",
+              }}
+            />
+          </div>
+        </section>
+
+        {/* ══ CHAOS → CLARITY ══ */}
+        <section style={{ padding: "120px 48px", borderTop: "1px solid #18181b" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <Reveal>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                <div
+                  style={{ background: "#0c0c0e", padding: "48px", borderRadius: "4px 0 0 4px" }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: "0.08em",
+                      color: "#3f3f46",
+                      marginBottom: 24,
+                    }}
+                  >
+                    BEFORE
+                  </div>
+                  <h3
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 600,
+                      color: "#52525b",
+                      marginBottom: 32,
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    Scattered tools.
+                    <br />
+                    Fractured context.
+                  </h3>
+                  {[
+                    "Slack for comms",
+                    "Notion for docs",
+                    "Jira for tasks",
+                    "Custom automation scripts",
+                    "3 different AI tools",
+                    "No unified view",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "10px 14px",
+                        background: "#111113",
+                        border: "1px solid #1c1c1e",
+                        borderRadius: 4,
+                        marginBottom: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: "#3f3f46",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ fontSize: 14, color: "#52525b" }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    background: "#0d0d14",
+                    padding: "48px",
+                    borderRadius: "0 4px 4px 0",
+                    borderLeft: "1px solid #1e1e2e",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: "0.08em",
+                      color: "#6366f1",
+                      marginBottom: 24,
+                    }}
+                  >
+                    AFTER INTELLIOPS
+                  </div>
+                  <h3
+                    style={{
+                      fontSize: 24,
+                      fontWeight: 600,
+                      color: "#a5b4fc",
+                      marginBottom: 32,
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    Unified operations.
+                    <br />
+                    Ambient intelligence.
+                  </h3>
+                  {[
+                    "Single operational layer",
+                    "Context-aware knowledge",
+                    "AI-native task orchestration",
+                    "Automated workflow intelligence",
+                    "Unified AI agent platform",
+                    "Real-time operational view",
+                  ].map((item) => (
+                    <div
+                      key={item}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "10px 14px",
+                        background: "#12121a",
+                        border: "1px solid #1e1e2e",
+                        borderRadius: 4,
+                        marginBottom: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: "#6366f1",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <span style={{ fontSize: 14, color: "#a1a1aa" }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ══ METRICS ══ */}
+        <section
+          style={{
+            padding: "80px 48px",
+            borderTop: "1px solid #18181b",
+            borderBottom: "1px solid #18181b",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 1200,
+              margin: "0 auto",
+              display: "grid",
+              gridTemplateColumns: "repeat(4,1fr)",
+              gap: 48,
+            }}
+          >
+            <MetricTicker label="Signals processed daily" value={2400000} unit="+" delay={0} />
+            <MetricTicker label="Agent tasks automated" value={98} unit="%" delay={200} />
+            <MetricTicker label="Avg. context retrieval" value={140} unit="ms" delay={400} />
+            <MetricTicker label="Enterprises in beta" value={84} unit="" delay={600} />
+          </div>
+        </section>
+
+        {/* ══ PLATFORM ARCHITECTURE ══ */}
+        <section style={{ padding: "120px 48px", borderBottom: "1px solid #18181b" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <Reveal>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-end",
+                  marginBottom: 64,
+                  flexWrap: "wrap",
+                  gap: 32,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#52525b",
+                      letterSpacing: "0.08em",
+                      marginBottom: 16,
+                    }}
+                  >
+                    PLATFORM ARCHITECTURE
+                  </div>
+                  <h2
+                    style={{
+                      fontSize: "clamp(32px,4vw,52px)",
+                      fontWeight: 600,
+                      letterSpacing: "-0.03em",
+                      color: "#f4f4f5",
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    Everything connected.
+                    <br />
+                    <span style={{ color: "#6366f1" }}>Nothing siloed.</span>
+                  </h2>
+                </div>
+                <p style={{ maxWidth: 320, fontSize: 15, color: "#52525b", lineHeight: 1.7 }}>
+                  IntelliOps orchestrates every surface of your organization into a coherent
+                  operational fabric — with AI woven throughout.
+                </p>
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.2}>
+              <div
+                style={{
+                  border: "1px solid #18181b",
+                  borderRadius: 6,
+                  overflow: "hidden",
+                  background: "#0a0a0c",
+                }}
+              >
+                <svg viewBox="0 0 900 480" width="100%" style={{ display: "block" }}>
+                  <circle cx="450" cy="240" r="48" fill="#0f0f14" stroke="#6366f1" strokeWidth="1.5" />
+                  <text
+                    x="450"
+                    y="236"
+                    textAnchor="middle"
+                    fill="#818cf8"
+                    fontSize="11"
+                    fontFamily="ui-sans-serif"
+                    fontWeight="600"
+                  >
+                    IntelliOps
+                  </text>
+                  <text
+                    x="450"
+                    y="252"
+                    textAnchor="middle"
+                    fill="#52525b"
+                    fontSize="9"
+                    fontFamily="ui-sans-serif"
+                  >
+                    Core Layer
+                  </text>
+
+                  <circle
+                    cx="450"
+                    cy="240"
+                    r="100"
+                    fill="none"
+                    stroke="#1c1c1e"
+                    strokeWidth="1"
+                    strokeDasharray="4 8"
+                  />
+                  <circle
+                    cx="450"
+                    cy="240"
+                    r="180"
+                    fill="none"
+                    stroke="#18181b"
+                    strokeWidth="1"
+                    strokeDasharray="2 12"
+                  />
+
+                  {[
+                    { angle: 0, label: "Agents", sub: "12 active" },
+                    { angle: 72, label: "Workflows", sub: "Automated" },
+                    { angle: 144, label: "Knowledge", sub: "Indexed" },
+                    { angle: 216, label: "Projects", sub: "Tracked" },
+                    { angle: 288, label: "Workspaces", sub: "Unified" },
+                  ].map(({ angle, label, sub }) => {
+                    const rad = (angle * Math.PI) / 180;
+                    const x = 450 + 100 * Math.cos(rad);
+                    const y = 240 + 100 * Math.sin(rad);
+                    return (
+                      <g key={label}>
+                        <line
+                          x1="450"
+                          y1="240"
+                          x2={x}
+                          y2={y}
+                          stroke="#27272a"
+                          strokeWidth="1"
+                        />
+                        <circle r="2.5" fill="#6366f1" opacity="0.9">
+                          <animateMotion
+                            dur="3s"
+                            repeatCount="indefinite"
+                            path={`M450,240 L${x.toFixed(1)},${y.toFixed(1)}`}
+                          />
+                        </circle>
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r="28"
+                          fill="#0f0f14"
+                          stroke="#27272a"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={x}
+                          y={y - 2}
+                          textAnchor="middle"
+                          fill="#a1a1aa"
+                          fontSize="10"
+                          fontFamily="ui-sans-serif"
+                          fontWeight="500"
+                        >
+                          {label}
+                        </text>
+                        <text
+                          x={x}
+                          y={y + 12}
+                          textAnchor="middle"
+                          fill="#3f3f46"
+                          fontSize="8"
+                          fontFamily="ui-sans-serif"
+                        >
+                          {sub}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {[
+                    { angle: 30, label: "GitHub" },
+                    { angle: 90, label: "Slack" },
+                    { angle: 150, label: "PagerDuty" },
+                    { angle: 210, label: "Datadog" },
+                    { angle: 270, label: "Linear" },
+                    { angle: 330, label: "Confluence" },
+                  ].map(({ angle, label }) => {
+                    const rad = (angle * Math.PI) / 180;
+                    const x = 450 + 180 * Math.cos(rad);
+                    const y = 240 + 180 * Math.sin(rad);
+                    const mx = 450 + 130 * Math.cos(rad);
+                    const my = 240 + 130 * Math.sin(rad);
+                    return (
+                      <g key={label}>
+                        <line
+                          x1={mx.toFixed(1)}
+                          y1={my.toFixed(1)}
+                          x2={x.toFixed(1)}
+                          y2={y.toFixed(1)}
+                          stroke="#1c1c1e"
+                          strokeWidth="1"
+                          strokeDasharray="3 6"
+                        />
+                        <circle
+                          cx={x}
+                          cy={y}
+                          r="20"
+                          fill="#0c0c0e"
+                          stroke="#1c1c1e"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={x}
+                          y={y + 4}
+                          textAnchor="middle"
+                          fill="#3f3f46"
+                          fontSize="8"
+                          fontFamily="ui-sans-serif"
+                        >
+                          {label}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  <path
+                    d="M 450 240 m -48 0 a 48 48 0 0 1 48 -48"
+                    fill="none"
+                    stroke="#6366f1"
+                    strokeWidth="1.5"
+                    opacity="0.4"
+                  >
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from="0 450 240"
+                      to="360 450 240"
+                      dur="8s"
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                </svg>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ══ TABBED PRODUCT SHOWCASE ══ */}
+        <section style={{ padding: "120px 48px", borderBottom: "1px solid #18181b" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <Reveal>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#52525b",
+                  letterSpacing: "0.08em",
+                  marginBottom: 16,
+                }}
+              >
+                CORE CAPABILITIES
+              </div>
+              <h2
+                style={{
+                  fontSize: "clamp(32px,4vw,52px)",
+                  fontWeight: 600,
+                  letterSpacing: "-0.03em",
+                  marginBottom: 48,
+                  color: "#f4f4f5",
+                  lineHeight: 1.1,
+                }}
+              >
+                Purpose-built for
+                <br />
+                operational scale.
+              </h2>
+            </Reveal>
+
+            <div style={{ display: "flex", borderBottom: "1px solid #18181b", marginBottom: 48 }}>
+              {tabs.map((label, i) => (
+                <button
+                  key={label}
+                  onClick={() => setActiveTab(i)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    borderBottom: activeTab === i ? "2px solid #6366f1" : "2px solid transparent",
+                    color: activeTab === i ? "#f4f4f5" : "#52525b",
+                    padding: "14px 28px",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "color .2s, border-color .2s",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 48,
+                  animation: "fadeUp .4s ease",
+                }}
+              >
+                <div>
+                  <h3
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 600,
+                      letterSpacing: "-0.02em",
+                      marginBottom: 16,
+                      color: "#f4f4f5",
+                    }}
+                  >
+                    Workflow orchestration without the glue code.
+                  </h3>
+                  <p style={{ color: "#71717a", lineHeight: 1.8, marginBottom: 32 }}>
+                    Define multi-step workflows in plain language. IntelliOps translates intent into
+                    executable pipelines — spanning AI steps, human approvals, and third-party
+                    triggers.
+                  </p>
+                  {[
+                    "Conditional branching with natural-language rules",
+                    "Human-in-the-loop approvals at any stage",
+                    "Real-time observability on every workflow run",
+                    "Rollback and recovery built in",
+                  ].map((f) => (
+                    <div key={f} style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+                      <div
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: "50%",
+                          border: "1px solid #6366f1",
+                          flexShrink: 0,
+                          marginTop: 3,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <div
+                          style={{ width: 6, height: 6, borderRadius: "50%", background: "#6366f1" }}
+                        />
+                      </div>
+                      <span style={{ fontSize: 14, color: "#a1a1aa", lineHeight: 1.6 }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    background: "#0a0a0c",
+                    border: "1px solid #18181b",
+                    borderRadius: 6,
+                    padding: 32,
+                  }}
+                >
+                  <svg viewBox="0 0 340 280" width="100%" style={{ display: "block" }}>
+                    {(
+                      [
+                        { x: 170, y: 30, label: "Trigger", type: "start" },
+                        { x: 170, y: 100, label: "AI Triage", type: "ai" },
+                        { x: 90, y: 170, label: "Auto-resolve", type: "auto" },
+                        { x: 250, y: 170, label: "Escalate", type: "human" },
+                        { x: 170, y: 240, label: "Complete", type: "end" },
+                      ] as const
+                    ).map(({ x, y, label, type }) => {
+                      const fills = {
+                        start: "#27272a",
+                        ai: "#1e1e3a",
+                        auto: "#0f2a1a",
+                        human: "#1a1a0f",
+                        end: "#27272a",
+                      };
+                      const strokes = {
+                        start: "#3f3f46",
+                        ai: "#6366f1",
+                        auto: "#22c55e",
+                        human: "#f59e0b",
+                        end: "#3f3f46",
+                      };
+                      return (
+                        <g key={label}>
+                          <rect
+                            x={x - 44}
+                            y={y - 14}
+                            width={88}
+                            height={28}
+                            rx="4"
+                            fill={fills[type]}
+                            stroke={strokes[type]}
+                            strokeWidth="1"
+                          />
+                          <text
+                            x={x}
+                            y={y + 5}
+                            textAnchor="middle"
+                            fill="#a1a1aa"
+                            fontSize="10"
+                            fontFamily="ui-sans-serif"
+                          >
+                            {label}
+                          </text>
+                        </g>
+                      );
+                    })}
+                    <line x1="170" y1="44" x2="170" y2="86" stroke="#27272a" strokeWidth="1" />
+                    <line
+                      x1="170"
+                      y1="114"
+                      x2="90"
+                      y2="156"
+                      stroke="#27272a"
+                      strokeWidth="1"
+                      strokeDasharray="3 4"
+                    />
+                    <line
+                      x1="170"
+                      y1="114"
+                      x2="250"
+                      y2="156"
+                      stroke="#27272a"
+                      strokeWidth="1"
+                      strokeDasharray="3 4"
+                    />
+                    <line x1="90" y1="184" x2="170" y2="226" stroke="#27272a" strokeWidth="1" />
+                    <line x1="250" y1="184" x2="170" y2="226" stroke="#27272a" strokeWidth="1" />
+                    <circle r="3" fill="#6366f1">
+                      <animateMotion
+                        dur="2.5s"
+                        repeatCount="indefinite"
+                        path="M170,44 L170,100 L90,170 L170,240"
+                      />
+                    </circle>
+                  </svg>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 1 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 48,
+                  animation: "fadeUp .4s ease",
+                }}
+              >
+                <div>
+                  <h3
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 600,
+                      letterSpacing: "-0.02em",
+                      marginBottom: 16,
+                      color: "#f4f4f5",
+                    }}
+                  >
+                    Agents that act, not just assist.
+                  </h3>
+                  <p style={{ color: "#71717a", lineHeight: 1.8, marginBottom: 32 }}>
+                    Deploy specialized AI agents with defined scopes, memory, and tool access. They
+                    monitor, decide, and act — while you maintain full governance.
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {[
+                      { name: "Incident Agent", status: "Active", tasks: "847 resolved" },
+                      { name: "Deploy Agent", status: "Standby", tasks: "230 runs" },
+                      { name: "Triage Agent", status: "Active", tasks: "2.1k analyzed" },
+                      { name: "Report Agent", status: "Active", tasks: "64 generated" },
+                    ].map((a) => (
+                      <div
+                        key={a.name}
+                        style={{
+                          padding: 16,
+                          background: "#0c0c0e",
+                          border: "1px solid #18181b",
+                          borderRadius: 4,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <span style={{ fontSize: 13, fontWeight: 500, color: "#e4e4e7" }}>
+                            {a.name}
+                          </span>
+                          <div
+                            style={{
+                              width: 6,
+                              height: 6,
+                              borderRadius: "50%",
+                              background: a.status === "Active" ? "#22c55e" : "#3f3f46",
+                              animation:
+                                mounted && a.status === "Active"
+                                  ? "pulse 2s ease infinite"
+                                  : "none",
+                            }}
+                          />
+                        </div>
+                        <span style={{ fontSize: 11, color: "#52525b" }}>{a.tasks}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: "#0a0a0c",
+                    border: "1px solid #18181b",
+                    borderRadius: 6,
+                    padding: 24,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#52525b",
+                      letterSpacing: "0.06em",
+                      marginBottom: 16,
+                    }}
+                  >
+                    AGENT ACTIVITY STREAM
+                  </div>
+                  {[
+                    {
+                      time: "00:00:01",
+                      agent: "IncidentAgent",
+                      action: "Classified P2 incident · notifying on-call",
+                    },
+                    {
+                      time: "00:00:03",
+                      agent: "TriageAgent",
+                      action: "Root cause identified · similar to INC-2891",
+                    },
+                    {
+                      time: "00:00:07",
+                      agent: "IncidentAgent",
+                      action: "Rollback triggered · monitoring recovery",
+                    },
+                    {
+                      time: "00:00:14",
+                      agent: "ReportAgent",
+                      action: "Incident report drafted · awaiting review",
+                    },
+                    {
+                      time: "00:00:22",
+                      agent: "IncidentAgent",
+                      action: "Services restored · incident closed",
+                    },
+                  ].map((e, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "60px 100px 1fr",
+                        gap: 12,
+                        padding: "8px 0",
+                        borderBottom: "1px solid #111113",
+                        fontSize: 12,
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      <span style={{ color: "#3f3f46" }}>{e.time}</span>
+                      <span style={{ color: "#6366f1" }}>{e.agent}</span>
+                      <span style={{ color: "#71717a" }}>{e.action}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 2 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 48,
+                  animation: "fadeUp .4s ease",
+                }}
+              >
+                <div>
+                  <h3
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 600,
+                      letterSpacing: "-0.02em",
+                      marginBottom: 16,
+                      color: "#f4f4f5",
+                    }}
+                  >
+                    Knowledge that stays current.
+                  </h3>
+                  <p style={{ color: "#71717a", lineHeight: 1.8, marginBottom: 32 }}>
+                    IntelliOps continuously indexes, links, and surfaces knowledge from every source
+                    — making institutional memory queryable rather than buried.
+                  </p>
+                  <div
+                    style={{
+                      fontFamily: "monospace",
+                      background: "#0a0a0c",
+                      border: "1px solid #18181b",
+                      borderRadius: 4,
+                      padding: 20,
+                    }}
+                  >
+                    <div style={{ color: "#52525b", fontSize: 12, marginBottom: 12 }}>
+                      {`// Query your organization's knowledge`}
+                    </div>
+                    <div style={{ color: "#a1a1aa", fontSize: 13, lineHeight: 2 }}>
+                      <span style={{ color: "#818cf8" }}>ops</span>.knowledge.
+                      <span style={{ color: "#34d399" }}>query</span>(
+                      <br />
+                      &nbsp;&nbsp;&quot;How do we handle on-call handoffs?&quot;,
+                      <br />
+                      &nbsp;&nbsp;{"{ "}context: workspace{" }"}
+                      <br />)
+                      <br />
+                      <span style={{ color: "#52525b" }}>
+                        {`// Returns ranked results with citations`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: "#0a0a0c",
+                    border: "1px solid #18181b",
+                    borderRadius: 6,
+                    padding: 24,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#52525b",
+                      letterSpacing: "0.06em",
+                      marginBottom: 20,
+                    }}
+                  >
+                    KNOWLEDGE GRAPH COVERAGE
+                  </div>
+                  {[
+                    { source: "Confluence", docs: "12,400", coverage: 94 },
+                    { source: "GitHub", docs: "8,200", coverage: 88 },
+                    { source: "Slack", docs: "340K", coverage: 76 },
+                    { source: "Runbooks", docs: "890", coverage: 99 },
+                    { source: "Incidents", docs: "4,100", coverage: 100 },
+                  ].map((s) => (
+                    <div key={s.source} style={{ marginBottom: 16 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginBottom: 6,
+                          fontSize: 13,
+                        }}
+                      >
+                        <span style={{ color: "#a1a1aa" }}>{s.source}</span>
+                        <span style={{ color: "#52525b" }}>
+                          {s.docs} docs · {s.coverage}%
+                        </span>
+                      </div>
+                      <div style={{ height: 3, background: "#18181b", borderRadius: 2 }}>
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${s.coverage}%`,
+                            background: "#6366f1",
+                            borderRadius: 2,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 3 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 48,
+                  animation: "fadeUp .4s ease",
+                }}
+              >
+                <div>
+                  <h3
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 600,
+                      letterSpacing: "-0.02em",
+                      marginBottom: 16,
+                      color: "#f4f4f5",
+                    }}
+                  >
+                    Workspaces built around how teams actually work.
+                  </h3>
+                  <p style={{ color: "#71717a", lineHeight: 1.8, marginBottom: 32 }}>
+                    Each workspace is a complete operational environment — with its own agents,
+                    knowledge, access controls, and workflows — while sharing the same organizational
+                    intelligence layer.
+                  </p>
+                  {[
+                    { team: "Engineering", members: 24, agents: 5, status: "6 workflows active" },
+                    { team: "Product", members: 11, agents: 3, status: "2 workflows active" },
+                    {
+                      team: "Security",
+                      members: 8,
+                      agents: 4,
+                      status: "Always-on monitoring",
+                    },
+                  ].map((w) => (
+                    <div
+                      key={w.team}
+                      style={{
+                        padding: "16px 20px",
+                        background: "#0c0c0e",
+                        border: "1px solid #18181b",
+                        borderRadius: 4,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: "#e4e4e7",
+                            marginBottom: 4,
+                          }}
+                        >
+                          {w.team}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#52525b" }}>
+                          {w.members} members · {w.agents} agents
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: "#6366f1",
+                          background: "#1e1e3a",
+                          padding: "4px 10px",
+                          borderRadius: 2,
+                        }}
+                      >
+                        {w.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    background: "#0a0a0c",
+                    border: "1px solid #18181b",
+                    borderRadius: 6,
+                    overflow: "hidden",
+                  }}
+                >
+                  <svg viewBox="0 0 340 280" width="100%" style={{ display: "block" }}>
+                    <WorkspaceNode label="" x={170} y={140} type="hub" />
+                    {[
+                      { x: 170, y: 50, label: "Engineering" },
+                      { x: 270, y: 110, label: "Product" },
+                      { x: 240, y: 220, label: "Security" },
+                      { x: 100, y: 220, label: "Customer" },
+                      { x: 70, y: 110, label: "Finance" },
+                    ].map((n) => (
+                      <g key={n.label}>
+                        <line
+                          x1="170"
+                          y1="140"
+                          x2={n.x}
+                          y2={n.y}
+                          stroke="#27272a"
+                          strokeWidth="1"
+                        />
+                        <WorkspaceNode label={n.label} x={n.x} y={n.y} type="team" />
+                        {[0, 1].map((i) => {
+                          const angle = (i / 2) * Math.PI * 2;
+                          const ax = n.x + 36 * Math.cos(angle);
+                          const ay = n.y + 36 * Math.sin(angle);
+                          return (
+                            <g key={i}>
+                              <line
+                                x1={n.x}
+                                y1={n.y}
+                                x2={ax.toFixed(1)}
+                                y2={ay.toFixed(1)}
+                                stroke="#1c1c1e"
+                                strokeWidth="0.5"
+                              />
+                              <WorkspaceNode label="" x={ax} y={ay} type="agent" />
+                            </g>
+                          );
+                        })}
+                      </g>
+                    ))}
+                  </svg>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ══ EDITORIAL PHILOSOPHY ══ */}
+        <section style={{ padding: "120px 48px", borderBottom: "1px solid #18181b" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 80 }}>
+              <Reveal>
+                <div style={{ paddingTop: 8 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#3f3f46",
+                      letterSpacing: "0.08em",
+                      marginBottom: 24,
+                      borderTop: "1px solid #27272a",
+                      paddingTop: 24,
+                    }}
+                  >
+                    PHILOSOPHY
+                  </div>
+                  {[
+                    "Unified context",
+                    "AI-first design",
+                    "Operational clarity",
+                    "Enterprise trust",
+                  ].map((t, i) => (
+                    <div
+                      key={t}
+                      style={{
+                        fontSize: 13,
+                        marginBottom: 12,
+                        color: i === 0 ? "#a1a1aa" : "#3f3f46",
+                        paddingLeft: i === 0 ? 8 : 0,
+                        borderLeft:
+                          i === 0 ? "2px solid #6366f1" : "2px solid transparent",
+                      }}
+                    >
+                      {t}
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+              <div>
+                <Reveal>
+                  <blockquote
+                    style={{
+                      fontSize: "clamp(24px,3vw,40px)",
+                      fontWeight: 600,
+                      letterSpacing: "-0.03em",
+                      lineHeight: 1.3,
+                      color: "#f4f4f5",
+                      marginBottom: 40,
+                    }}
+                  >
+                    &ldquo;Most tools solve for features.
+                    <br />
+                    <span style={{ color: "#6366f1" }}>We solve for coordination.&rdquo;</span>
+                  </blockquote>
+                </Reveal>
+                <Reveal delay={0.15}>
+                  <p
+                    style={{
+                      fontSize: 17,
+                      color: "#71717a",
+                      lineHeight: 1.8,
+                      maxWidth: 640,
+                      marginBottom: 32,
+                    }}
+                  >
+                    Modern organizations don&apos;t fail because they lack capability. They fail
+                    because their tools, teams, and intelligence exist in separate universes.
+                    IntelliOps is built on the premise that the future of operations is unified —
+                    where every action feeds every decision.
+                  </p>
+                </Reveal>
+                <Reveal delay={0.25}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 24,
+                      maxWidth: 640,
+                    }}
+                  >
+                    {[
+                      {
+                        label: "No more context switching",
+                        body: "One surface for all operational data, decisions, and execution.",
+                      },
+                      {
+                        label: "AI as a participant, not a tool",
+                        body: "Agents collaborate alongside humans at every workflow stage.",
+                      },
+                      {
+                        label: "Institutional memory, made queryable",
+                        body: "Every decision, incident, and insight becomes searchable organizational knowledge.",
+                      },
+                      {
+                        label: "Control without complexity",
+                        body: "Enterprise governance, role-based access, and full audit trails — without the overhead.",
+                      },
+                    ].map((c) => (
+                      <div
+                        key={c.label}
+                        style={{ padding: "24px 0", borderTop: "1px solid #18181b" }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: "#e4e4e7",
+                            marginBottom: 10,
+                          }}
+                        >
+                          {c.label}
+                        </div>
+                        <div style={{ fontSize: 14, color: "#52525b", lineHeight: 1.7 }}>
+                          {c.body}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Reveal>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ─── Thin divider ───────────────────────────────── */}
-        <div className="border-t border-zinc-900 max-w-7xl mx-auto" />
-
-        {/* ─── Features ───────────────────────────────────── */}
-        <section id="features" className="max-w-7xl mx-auto px-6 py-24">
-          <div className="mb-14">
-            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-600 mb-3">Capabilities</p>
-            <h2 className="text-3xl font-semibold tracking-tight text-zinc-100">
-              Built for the ops layer
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-px bg-zinc-900 border border-zinc-900">
-            {FEATURES.map((f) => (
-              <div key={f.label} className="bg-zinc-950 p-8 space-y-3 group">
-                <div className={`h-px w-8 ${f.accent} mb-5 transition-all group-hover:w-16`} />
-                <h3 className="text-base font-semibold text-zinc-100">{f.label}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed">{f.desc}</p>
+        {/* ══ OPERATIONAL INTELLIGENCE DASHBOARD ══ */}
+        <section style={{ padding: "120px 48px", borderBottom: "1px solid #18181b" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <Reveal>
+              <div style={{ textAlign: "center", marginBottom: 64 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#52525b",
+                    letterSpacing: "0.08em",
+                    marginBottom: 16,
+                  }}
+                >
+                  OPERATIONAL INTELLIGENCE
+                </div>
+                <h2
+                  style={{
+                    fontSize: "clamp(32px,4vw,52px)",
+                    fontWeight: 600,
+                    letterSpacing: "-0.03em",
+                    color: "#f4f4f5",
+                    lineHeight: 1.1,
+                  }}
+                >
+                  See everything.
+                  <br />
+                  Act on what matters.
+                </h2>
               </div>
+            </Reveal>
+            <Reveal delay={0.2}>
+              <div
+                style={{
+                  background: "#0a0a0c",
+                  border: "1px solid #18181b",
+                  borderRadius: 6,
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "16px 24px",
+                    borderBottom: "1px solid #18181b",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div style={{ display: "flex", gap: 24 }}>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        color: "#6366f1",
+                        borderBottom: "1px solid #6366f1",
+                        paddingBottom: 4,
+                      }}
+                    >
+                      Overview
+                    </span>
+                    {["Signals", "Agents", "Incidents"].map((t) => (
+                      <span key={t} style={{ fontSize: 12, color: "#3f3f46" }}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: "#22c55e",
+                        animation: mounted ? "pulse 2s ease infinite" : "none",
+                      }}
+                    />
+                    <span style={{ fontSize: 12, color: "#52525b" }}>Live · updated 2s ago</span>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4,1fr)",
+                    borderBottom: "1px solid #18181b",
+                  }}
+                >
+                  {[
+                    { label: "Active signals", value: "2,847", delta: "+12%", pos: true },
+                    { label: "Agents running", value: "12", delta: "100%", pos: null },
+                    { label: "MTTR this week", value: "4m 22s", delta: "-18%", pos: false },
+                    { label: "Incidents resolved", value: "98", delta: "today", pos: null },
+                  ].map((m, i) => (
+                    <div
+                      key={m.label}
+                      style={{
+                        padding: 24,
+                        borderRight: i < 3 ? "1px solid #18181b" : "none",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#52525b",
+                          marginBottom: 8,
+                          letterSpacing: "0.04em",
+                        }}
+                      >
+                        {m.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 28,
+                          fontWeight: 600,
+                          color: "#f4f4f5",
+                          letterSpacing: "-0.02em",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {m.value}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color:
+                            m.pos === true
+                              ? "#22c55e"
+                              : m.pos === false
+                              ? "#f87171"
+                              : "#52525b",
+                        }}
+                      >
+                        {m.delta}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ padding: 24 }}>
+                  <svg viewBox="0 0 1008 120" width="100%" style={{ display: "block" }}>
+                    {BAR_HEIGHTS.map((h, i) => (
+                      <rect
+                        key={i}
+                        x={i * 21}
+                        y={100 - h}
+                        width={16}
+                        height={h}
+                        rx="1"
+                        fill={i > 32 && i < 38 ? "#6366f1" : "#1c1c1e"}
+                        opacity={i > 32 && i < 38 ? 1 : 0.7}
+                      />
+                    ))}
+                  </svg>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginTop: 8,
+                      fontSize: 11,
+                      color: "#3f3f46",
+                    }}
+                  >
+                    <span>00:00</span>
+                    <span>Anomaly detected 14:32</span>
+                    <span>now</span>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ══ ENTERPRISE TRUST ══ */}
+        <section style={{ padding: "120px 48px", borderBottom: "1px solid #18181b" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 80,
+                alignItems: "center",
+              }}
+            >
+              <Reveal>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#52525b",
+                      letterSpacing: "0.08em",
+                      marginBottom: 24,
+                    }}
+                  >
+                    BUILT FOR ENTERPRISE
+                  </div>
+                  <h2
+                    style={{
+                      fontSize: "clamp(28px,3.5vw,44px)",
+                      fontWeight: 600,
+                      letterSpacing: "-0.03em",
+                      marginBottom: 24,
+                      lineHeight: 1.2,
+                      color: "#f4f4f5",
+                    }}
+                  >
+                    Security and compliance
+                    <br />
+                    as a foundation.
+                  </h2>
+                  <p
+                    style={{
+                      fontSize: 16,
+                      color: "#71717a",
+                      lineHeight: 1.8,
+                      marginBottom: 40,
+                    }}
+                  >
+                    IntelliOps is designed to operate inside the security perimeter of enterprise
+                    organizations — not around it.
+                  </p>
+                  {[
+                    { label: "SOC 2 Type II", detail: "Certified · continuous monitoring" },
+                    { label: "SSO & SCIM", detail: "Okta, Azure AD, Google Workspace" },
+                    { label: "Audit logs", detail: "Complete action history · immutable" },
+                    { label: "Data residency", detail: "US, EU, APAC · configurable" },
+                    { label: "Zero-trust network", detail: "Encrypted at rest and in transit" },
+                  ].map((c) => (
+                    <div
+                      key={c.label}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "16px 0",
+                        borderBottom: "1px solid #18181b",
+                      }}
+                    >
+                      <span style={{ fontSize: 14, fontWeight: 500, color: "#a1a1aa" }}>
+                        {c.label}
+                      </span>
+                      <span style={{ fontSize: 13, color: "#52525b" }}>{c.detail}</span>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+              <Reveal delay={0.2}>
+                <div
+                  style={{
+                    background: "#0a0a0c",
+                    border: "1px solid #18181b",
+                    borderRadius: 6,
+                    padding: 40,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#52525b",
+                      letterSpacing: "0.06em",
+                      marginBottom: 24,
+                    }}
+                  >
+                    DEPLOYMENT OPTIONS
+                  </div>
+                  {[
+                    {
+                      name: "Cloud-managed",
+                      desc: "Fully managed SaaS. Zero ops burden. Auto-updates.",
+                      tag: "Recommended",
+                      accent: true,
+                    },
+                    {
+                      name: "Private cloud",
+                      desc: "Deploy into your VPC. Your data never leaves your environment.",
+                      tag: "Enterprise",
+                      accent: false,
+                    },
+                    {
+                      name: "On-premise",
+                      desc: "Air-gapped deployment. For the most restricted environments.",
+                      tag: "Enterprise+",
+                      accent: false,
+                    },
+                  ].map((d) => (
+                    <div
+                      key={d.name}
+                      style={{
+                        padding: 20,
+                        background: d.accent ? "#0f0f1a" : "transparent",
+                        border: d.accent ? "1px solid #27273a" : "1px solid #111113",
+                        borderRadius: 4,
+                        marginBottom: 12,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: 14, fontWeight: 500, color: "#e4e4e7" }}>
+                          {d.name}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: d.accent ? "#818cf8" : "#3f3f46",
+                            background: d.accent ? "#1e1e3a" : "#111113",
+                            padding: "3px 8px",
+                            borderRadius: 2,
+                          }}
+                        >
+                          {d.tag}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 13, color: "#52525b", lineHeight: 1.6 }}>
+                        {d.desc}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+            </div>
+          </div>
+        </section>
+
+        {/* ══ CTA ══ */}
+        <section style={{ padding: "160px 48px" }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+            <Reveal>
+              <div style={{ textAlign: "center", position: "relative" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    pointerEvents: "none",
+                    backgroundImage:
+                      "radial-gradient(ellipse 600px 200px at center, rgba(99,102,241,0.06) 0%, transparent 70%)",
+                  }}
+                />
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#52525b",
+                    letterSpacing: "0.08em",
+                    marginBottom: 24,
+                  }}
+                >
+                  PRIVATE BETA · LIMITED ACCESS
+                </div>
+                <h2
+                  style={{
+                    fontSize: "clamp(40px,6vw,80px)",
+                    fontWeight: 600,
+                    letterSpacing: "-0.04em",
+                    lineHeight: 1.0,
+                    marginBottom: 32,
+                    color: "#f4f4f5",
+                  }}
+                >
+                  Operate with
+                  <br />
+                  <span style={{ color: "#6366f1" }}>intelligence.</span>
+                </h2>
+                <p
+                  style={{
+                    fontSize: 18,
+                    color: "#52525b",
+                    lineHeight: 1.7,
+                    maxWidth: 480,
+                    margin: "0 auto 48px",
+                  }}
+                >
+                  Join 84 engineering and product teams replacing tool sprawl with a single
+                  operational layer.
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 16,
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    style={{
+                      background: "#6366f1",
+                      color: "#fff",
+                      border: "none",
+                      padding: "16px 36px",
+                      borderRadius: 4,
+                      fontSize: 16,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Request access
+                  </button>
+                  <button
+                    style={{
+                      background: "transparent",
+                      color: "#71717a",
+                      border: "1px solid #27272a",
+                      padding: "16px 36px",
+                      borderRadius: 4,
+                      fontSize: 16,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Talk to sales
+                  </button>
+                </div>
+                <div
+                  style={{
+                    marginTop: 48,
+                    display: "flex",
+                    gap: 32,
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {["No credit card required", "Dedicated onboarding", "SOC 2 certified"].map(
+                    (t) => (
+                      <div key={t} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <div
+                          style={{
+                            width: 4,
+                            height: 4,
+                            borderRadius: "50%",
+                            background: "#3f3f46",
+                          }}
+                        />
+                        <span style={{ fontSize: 13, color: "#3f3f46" }}>{t}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ══ FOOTER ══ */}
+        <footer
+          style={{
+            borderTop: "1px solid #18181b",
+            padding: "40px 48px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 16,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 16, height: 16, position: "relative", flexShrink: 0 }}>
+              <div
+                style={{
+                  width: 7,
+                  height: 7,
+                  background: "#6366f1",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                }}
+              />
+              <div
+                style={{
+                  width: 7,
+                  height: 7,
+                  background: "#27272a",
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                }}
+              />
+            </div>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "#52525b" }}>IntelliOps</span>
+            <span style={{ fontSize: 13, color: "#27272a", marginLeft: 16 }}>© 2025</span>
+          </div>
+          <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+            {["Privacy", "Terms", "Security", "Status"].map((l) => (
+              <a
+                key={l}
+                href="#"
+                style={{ fontSize: 13, color: "#3f3f46", textDecoration: "none" }}
+              >
+                {l}
+              </a>
             ))}
           </div>
-        </section>
-
-        {/* ─── Thin divider ───────────────────────────────── */}
-        <div className="border-t border-zinc-900 max-w-7xl mx-auto" />
-
-        {/* ─── CTA banner ─────────────────────────────────── */}
-        <section className="max-w-7xl mx-auto px-6 py-24 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-8">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight text-zinc-100">
-              Ready to index your stack?
-            </h2>
-            <p className="text-sm text-zinc-500 mt-2">Free during beta. No credit card required.</p>
-          </div>
-          <Show when="signed-out">
-            <SignUpButton mode="modal">
-              <button className="shrink-0 flex items-center gap-2 border border-zinc-700 hover:border-indigo-500 hover:bg-indigo-500/5 text-zinc-100 text-sm font-semibold px-5 py-2.5 rounded transition-all">
-                Create workspace <ArrowUpRight className="h-4 w-4" />
-              </button>
-            </SignUpButton>
-          </Show>
-          <Show when="signed-in">
-            <Link href="/dashboard">
-              <button className="shrink-0 flex items-center gap-2 border border-zinc-700 hover:border-indigo-500 hover:bg-indigo-500/5 text-zinc-100 text-sm font-semibold px-5 py-2.5 rounded transition-all">
-                Open workspace <ArrowUpRight className="h-4 w-4" />
-              </button>
-            </Link>
-          </Show>
-        </section>
-      </main>
-
-      {/* ─── Footer ─────────────────────────────────────── */}
-      <footer className="border-t border-zinc-900 bg-zinc-950">
-        <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="h-5 w-5 rounded bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white">O</div>
-            <span className="text-xs font-semibold text-zinc-500">OpsIQ</span>
-          </div>
-          <div className="flex items-center gap-6 text-xs text-zinc-600">
-            <a href="#" className="hover:text-zinc-400 transition-colors">Privacy</a>
-            <a href="#" className="hover:text-zinc-400 transition-colors">Terms</a>
-            <a href="#" className="hover:text-zinc-400 transition-colors">Status</a>
-            <span>© {new Date().getFullYear()}</span>
-          </div>
-        </div>
-      </footer>
-    </div>
-  )
+        </footer>
+      </div>
+    </>
+  );
 }

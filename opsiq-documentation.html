@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>intelliOps — Platform Documentation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+  --bg:            #fafafa;
+  --surface:       #ffffff;
+  --surface2:      #f4f4f5;
+
+  --border:        #d4d4d8;
+  --border-subtle: #e4e4e7;
+
+  --text:          #09090b;
+  --text-2:        #52525b;
+  --text-3:        #71717a;
+
+  --accent:        #4f46e5;
+  --accent-dim:    #c7d2fe;
+
+  --green:         #16a34a;
+  --amber:         #d97706;
+  --red:           #dc2626;
+  --teal:          #0f766e;
+
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 15px;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
+      background: rgba(9,9,11,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      padding: 0 32px;
+      z-index: 100;
+      gap: 32px;
+    }
+
+    .nav-logo {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-logo-icon {
+      width: 26px; height: 26px;
+      background: var(--accent);
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+      margin-left: auto;
+    }
+
+    .nav-links a {
+      color: var(--text-3);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.15s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 32px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 140px 32px 80px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(99,102,241,0.1);
+      border: 1px solid rgba(99,102,241,0.25);
+      border-radius: 100px;
+      padding: 4px 12px;
+      margin-bottom: 28px;
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 5vw, 60px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.08;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(135deg, #6366f1 0%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-desc {
+      font-size: 17px;
+      color: var(--text-2);
+      max-width: 600px;
+      line-height: 1.65;
+      margin-bottom: 40px;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hero-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-3);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+    }
+
+    .hero-tag .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* ── SECTION ── */
+    section {
+      padding: 72px 0;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+
+    .section-desc {
+      font-size: 15px;
+      color: var(--text-2);
+      max-width: 560px;
+      margin-bottom: 48px;
+      line-height: 1.65;
+    }
+
+    /* ── STACK GRID ── */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .stack-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+
+    .stack-item-role {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 4px;
+    }
+
+    .stack-item-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .stack-item-note {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-top: 3px;
+    }
+
+    /* ── PHASE CARDS ── */
+    .phases {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .phase-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .phase-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      padding: 24px 28px;
+      cursor: pointer;
+    }
+
+    .phase-number {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      border-radius: 9px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(99,102,241,0.3);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #a5b4fc;
+      font-family: var(--font-mono);
+    }
+
+    .phase-header-text { flex: 1; }
+
+    .phase-name {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .phase-goal {
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+
+    .phase-badge {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 100px;
+      border: 1px solid;
+    }
+
+    .badge-green  { color: var(--green);  border-color: rgba(34,197,94,0.3);  background: rgba(34,197,94,0.08); }
+    .badge-amber  { color: var(--amber);  border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
+    .badge-red    { color: var(--red);    border-color: rgba(239,68,68,0.3);  background: rgba(239,68,68,0.08); }
+    .badge-indigo { color: #a5b4fc;       border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.08); }
+    .badge-zinc   { color: var(--text-2); border-color: var(--border);        background: var(--surface2); }
+    .badge-teal   { color: var(--teal);   border-color: rgba(20,184,166,0.3); background: rgba(20,184,166,0.08); }
+
+    .phase-body {
+      border-top: 1px solid var(--border);
+      padding: 28px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+
+    @media (max-width: 700px) {
+      .phase-body { grid-template-columns: 1fr; }
+    }
+
+    .phase-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 14px;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+
+    .feature-list li::before {
+      content: '';
+      flex-shrink: 0;
+      margin-top: 6px;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .api-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .api-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+    }
+
+    .method {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+
+    .method-get    { background: rgba(20,184,166,0.15); color: var(--teal); }
+    .method-post   { background: rgba(99,102,241,0.15); color: #a5b4fc; }
+    .method-patch  { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .method-delete { background: rgba(239,68,68,0.15);  color: var(--red); }
+
+    .api-path { color: var(--text-2); }
+
+    /* ── SECURITY TABLE ── */
+    .security-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .security-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .security-icon {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.2);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+    }
+
+    .security-text { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+
+    /* ── SCHEMA TABLE ── */
+    .schema-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: var(--surface2);
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      white-space: nowrap;
+    }
+
+    tbody tr { border-top: 1px solid var(--border-subtle); }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+    tbody td {
+      padding: 11px 16px;
+      color: var(--text-2);
+      vertical-align: top;
+    }
+
+    td:first-child {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #a5b4fc;
+      white-space: nowrap;
+    }
+
+    td code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      color: var(--text-2);
+    }
+
+    /* ── DESIGN SYSTEM ── */
+    .color-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+
+    .color-chip {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .color-swatch {
+      width: 44px; height: 44px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .color-name {
+      font-size: 10px;
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      text-align: center;
+    }
+
+    .components-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .component-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--text-2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .component-chip::before {
+      content: '◈';
+      color: var(--accent);
+      font-size: 12px;
+    }
+
+    /* ── PIPELINE ── */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+    }
+
+    .pipeline::before {
+      content: '';
+      position: absolute;
+      left: 17px;
+      top: 36px;
+      bottom: 36px;
+      width: 1px;
+      background: linear-gradient(to bottom, var(--accent), transparent);
+    }
+
+    .pipeline-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      padding: 16px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pipeline-dot {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      border: 2px solid var(--accent);
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #a5b4fc;
+    }
+
+    .pipeline-content { flex: 1; padding-top: 6px; }
+
+    .pipeline-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .pipeline-desc {
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
+    /* ── ENV TABLE ── */
+    .env-group { margin-bottom: 28px; }
+    .env-group-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .env-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 13px;
+    }
+
+    .env-key {
+      flex: 0 0 280px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: #a5b4fc;
+    }
+
+    .env-desc { color: var(--text-2); }
+
+    /* ── FOLDER TREE ── */
+    .folder-tree {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.9;
+      color: var(--text-2);
+      overflow-x: auto;
+    }
+
+    .folder-tree .dir  { color: var(--text); font-weight: 500; }
+    .folder-tree .file { color: var(--text-3); }
+    .folder-tree .note { color: var(--accent); font-size: 11px; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 40px 32px;
+      text-align: center;
+    }
+
+    .footer-inner { max-width: 1100px; margin: 0 auto; }
+
+    .footer-logo {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .footer-meta {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+
+    /* ── CALLOUT ── */
+    .callout {
+      display: flex;
+      gap: 14px;
+      background: rgba(99,102,241,0.07);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 28px;
+    }
+
+    .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .callout-text { font-size: 13px; color: var(--text-2); line-height: 1.55; }
+    .callout-text strong { color: var(--text); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      .nav-links { display: none; }
+      .hero { padding: 100px 20px 60px; }
+      .container { padding: 0 20px; }
+      section { padding: 52px 0; }
+      .env-key { flex: 0 0 180px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="nav-logo">
+    <span class="nav-logo-icon">⚡</span>
+    intelliOps
+  </a>
+  <ul class="nav-links">
+    <li><a href="#approach">Approach</a></li>
+    <li><a href="#stack">Stack</a></li>
+    <li><a href="#phases">Phases</a></li>
+    <li><a href="#schema">Schema</a></li>
+    <li><a href="#security">Security</a></li>
+    <li><a href="#design">Design</a></li>
+    <li><a href="#structure">Structure</a></li>
+    <li><a href="#env">Config</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-eyebrow">📋 Platform Documentation</div>
+  <h1>intelliOps — <span>AI Operations</span><br>Intelligence Platform</h1>
+  <p class="hero-desc">
+    A full-stack SaaS platform that ingests operational data — logs, CSVs, PDFs, and JSON —
+    and makes it queryable via natural language, surfacing insights and anomalies automatically.
+  </p>
+  <div class="hero-meta">
+    <div class="hero-tag"><span class="dot"></span>Next.js 16 · App Router</div>
+    <div class="hero-tag"><span class="dot"></span>TypeScript Strict Mode</div>
+    <div class="hero-tag"><span class="dot"></span>pgvector RAG Pipeline</div>
+    <div class="hero-tag"><span class="dot"></span>Streaming AI Responses</div>
+    <div class="hero-tag"><span class="dot"></span>Role-Based Access Control</div>
+    <div class="hero-tag"><span class="dot"></span>Dark Mode · Bento UI</div>
+  </div>
+</div>
+
+<!-- APPROACH -->
+<section id="approach">
+  <div class="container">
+    <div class="section-label">Methodology</div>
+    <h2 class="section-title">Development Approach</h2>
+    <p class="section-desc">A systematic, AI-augmented workflow combining requirements analysis, system design prompting, phase-based development, and rigorous testing.</p>
+
+    <h3 style="font-size: 16px; font-weight: 600; margin-top: 40px; margin-bottom: 16px; color: var(--text);">Phase 0: Requirements & System Design</h3>
+    <p style="margin-bottom: 16px; color: var(--text-2);">
+      The project began with comprehensive requirement analysis, followed by Claude serving as a system designer. A detailed design prompt was provided to ensure architectural coherence across all layers:
+    </p>
+
+    <div style="background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: var(--text-2); overflow-x: auto;">
+      <strong>Initial Design Prompt (Abbreviated):</strong><br><br>
+      <strong style="color: var(--text);">Objective:</strong> AI-powered operations intelligence platform for organizing operational information, analyzing incidents, intelligent search, and insight generation.<br><br>
+      <strong style="color: var(--text);">User Capabilities:</strong>
+      <ul style="margin: 8px 0 8px 20px;">
+        <li>Workspace/project creation for information organization</li>
+        <li>Data upload: Logs, CSV, PDFs, TXT, JSON</li>
+        <li>Semantic search across all data</li>
+        <li>AI summarization & incident analysis</li>
+        <li>Dashboard with activity feed, insights, analytics</li>
+        <li>Role-based access (Owner, Admin, User)</li>
+      </ul>
+      <strong style="color: var(--text);">Initial Tech Stack:</strong> Next.js, Tailwind, TypeScript, Neon DB with pgvector, Prisma ORM, OpenRouter (free tier), Clerk authentication.
+    </div>
+
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+      <strong style="font-size: 14px; color: var(--text);">Key Design Clarifications:</strong>
+      <ul style="margin-top: 12px; margin-left: 20px; color: var(--text-2);">
+        <li><strong>MVP Scope:</strong> Focus on OpenRouter for cost efficiency; skip alert system & WebSockets; use cached strategy for offline awareness</li>
+        <li><strong>Architecture:</strong> All database actions in API routes (no frontend queries); role-based access via Clerk; rate limiting on all user-facing endpoints</li>
+        <li><strong>Data Pipeline:</strong> File upload → Object storage (Supabase R2) → Metadata in Neon → Chunking strategy → Embedding generation → pgvector indexing → Semantic search</li>
+        <li><strong>Security-First:</strong> Authentication on every API route, input validation, magic byte file verification, SQL injection prevention via Prisma</li>
+        <li><strong>Alerting & Notifications:</strong> Deferred to Phase N; currently using NextAuth + Clerk with token-based session management</li>
+      </ul>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 600; margin-top: 40px; margin-bottom: 16px; color: var(--text);">Design Principles</h3>
+    <p style="margin-bottom: 16px; color: var(--text-2);">
+      The platform follows a modern AI-native SaaS aesthetic inspired by Linear, Notion, Vercel, and Stripe:
+    </p>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+      <ul style="margin-left: 20px; color: var(--text-2);">
+        <li><strong>Minimalism:</strong> Clean spacing, structured information hierarchy, high readability</li>
+        <li><strong>Bento UI Layouts:</strong> Card-based component arrangement for dashboard modularity</li>
+        <li><strong>Editorial Typography:</strong> Strong visual hierarchy with clear distinction between headings, body, and metadata</li>
+        <li><strong>Dark Mode Primary:</strong> Default dark interface (zinc-950 backgrounds) with high contrast for accessibility</li>
+        <li><strong>Subtle Glassmorphism:</strong> Applied only to modals, command palettes, and floating panels (avoid overuse)</li>
+        <li><strong>Avoid:</strong> Neo-Brutalism, Claymorphism, Neumorphism, excessive gradients, decorative elements</li>
+        <li><strong>Feel:</strong> Professional, intelligent, trustworthy, data-focused</li>
+      </ul>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 600; margin-top: 40px; margin-bottom: 16px; color: var(--text);">Development Workflow</h3>
+    <p style="margin-bottom: 16px; color: var(--text-2);">
+      Each feature phase follows a structured prompt-driven approach:
+    </p>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+      <ol style="margin-left: 20px; color: var(--text-2);">
+        <li style="margin-bottom: 12px;"><strong>Phase Planning:</strong> Clear scope definition with acceptance criteria, API contracts, and security requirements</li>
+        <li style="margin-bottom: 12px;"><strong>Prompt Generation:</strong> Individual prompts created for each feature/component, specifying inputs, expected outputs, and constraints</li>
+        <li style="margin-bottom: 12px;"><strong>Antigravity Execution:</strong> AI agent (Antigravity/Claude Haiku) processes prompt and generates production-ready code</li>
+        <li style="margin-bottom: 12px;"><strong>Code Review:</strong> Full codebase review before moving to next phase; refactor if needed</li>
+        <li style="margin-bottom: 12px;"><strong>Testing:</strong> Manual testing on application + automated test file generation for each API endpoint</li>
+        <li><strong>Iteration:</strong> Refinement based on testing results; move to next phase only when phase is stable</li>
+      </ol>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 600; margin-top: 40px; margin-bottom: 16px; color: var(--text);">Testing Strategy</h3>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+      <p style="margin-bottom: 12px; color: var(--text-2);">
+        <strong style="color: var(--text);">Unit & Integration Tests:</strong> Each API endpoint has a corresponding test file covering nominal paths, error cases, and edge cases.
+      </p>
+      <p style="margin-bottom: 12px; color: var(--text-2);">
+        <strong style="color: var(--text);">Manual End-to-End Testing:</strong> Features tested in the running application before release; user interactions validated against API behavior.
+      </p>
+      <p style="color: var(--text-2);">
+        <strong style="color: var(--text);">Antigravity Test Generation:</strong> Prompted AI agent to create comprehensive test suites for each phase; ensures rapid feedback loop and regression prevention.
+      </p>
+    </div>
+
+    <h3 style="font-size: 16px; font-weight: 600; margin-top: 40px; margin-bottom: 16px; color: var(--text);">Example: Phase 1 Workflow</h3>
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+      <p style="margin-bottom: 8px; color: var(--text-2);"><strong style="color: var(--text);">Scope:</strong> Authentication & Workspace Setup</p>
+      <p style="margin-bottom: 8px; color: var(--text-2);"><strong style="color: var(--text);">Prompt to Agent:</strong></p>
+      <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 6px; padding: 12px; margin: 8px 0; font-size: 12px; color: var(--text-2);">
+        "Build Clerk authentication integration with role-based workspace setup. Implement POST /api/workspaces with owner assignment, transaction-based user-workspace member creation, and audit logging. Enforce rate limiting on workspace creation. Include error handling for duplicate slugs. No database access from frontend."
+      </div>
+      <p style="margin-bottom: 8px; color: var(--text-2);"><strong style="color: var(--text);">Output:</strong> Complete API route, Prisma queries, error handling, and test suite</p>
+      <p style="color: var(--text-2);"><strong style="color: var(--text);">Validation:</strong> Tested in app, verified auth flow, confirmed audit logs were created</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- STACK -->
+<section id="stack">
+  <div class="container">
+    <div class="section-label">Technology</div>
+    <h2 class="section-title">Tech Stack</h2>
+    <p class="section-desc">Every layer is chosen for production reliability, developer ergonomics, and AI-native workflows.</p>
+    <div class="stack-grid">
+      <div class="stack-item">
+        <div class="stack-item-role">Framework</div>
+        <div class="stack-item-name">Next.js 16</div>
+        <div class="stack-item-note">App Router · TypeScript strict</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">Styling</div>
+        <div class="stack-item-name">Tailwind CSS</div>
+        <div class="stack-item-note">Custom design tokens · Dark mode</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">Database</div>
+        <div class="stack-item-name">NeonDB (Postgres)</div>
+        <div class="stack-item-note">pgvector extension for embeddings</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">ORM</div>
+        <div class="stack-item-name">Prisma</div>
+        <div class="stack-item-note">Type-safe queries · Migrations</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">Authentication</div>
+        <div class="stack-item-name">Clerk</div>
+        <div class="stack-item-note">JWT · Webhooks · RBAC</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">AI / LLM</div>
+        <div class="stack-item-name">OpenRouter</div>
+        <div class="stack-item-note">GPT OSS 20B</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">AI Streaming</div>
+        <div class="stack-item-name">Vercel AI SDK</div>
+        <div class="stack-item-note">streamText · StreamingTextResponse</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">Cache + Rate Limits</div>
+        <div class="stack-item-name">Upstash Redis</div>
+        <div class="stack-item-note">Sliding window limiters</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">Object Storage</div>
+        <div class="stack-item-name">Supabase S3</div>
+        <div class="stack-item-note">S3-compatible API · Signed URLs</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">Validation</div>
+        <div class="stack-item-name">Zod</div>
+        <div class="stack-item-note">All API inputs validated</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">UI Primitives</div>
+        <div class="stack-item-name">Radix UI</div>
+        <div class="stack-item-note">Dialog · Dropdown · Select · Tooltip</div>
+      </div>
+      <div class="stack-item">
+        <div class="stack-item-role">Charts</div>
+        <div class="stack-item-name">Recharts</div>
+        <div class="stack-item-note">File type distribution BarChart</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PHASES -->
+<section id="phases">
+  <div class="container">
+    <div class="section-label">Build Phases</div>
+    <h2 class="section-title">Feature Breakdown by Phase</h2>
+    <p class="section-desc">Built in six sequential phases. Each phase depends on the previous — do not skip or merge.</p>
+
+    <div class="phases">
+
+      <!-- PHASE 0 -->
+      <div class="phase-card">
+        <div class="phase-header">
+          <div class="phase-number">00</div>
+          <div class="phase-header-text">
+            <div class="phase-name">Foundation</div>
+            <div class="phase-goal">Repo scaffolding, database schema, design tokens, shared utilities — no UI yet</div>
+          </div>
+          <span class="phase-badge badge-indigo">Infrastructure</span>
+        </div>
+        <div class="phase-body">
+          <div>
+            <div class="phase-section-title">Core Libraries Created</div>
+            <ul class="feature-list">
+              <li><code>src/lib/db.ts</code> — Prisma singleton with hot-reload safety</li>
+              <li><code>src/lib/api-middleware.ts</code> — Auth guard, workspace guard, ApiError class, Zod validator helper</li>
+              <li><code>src/lib/rate-limit.ts</code> — Upload (10/hr), AI (30/hr), General (100/min) limiters via Upstash</li>
+              <li><code>src/lib/cache.ts</code> — Redis get/set/invalidate with TTL</li>
+              <li><code>src/lib/storage.ts</code> — Supabase S3 upload, delete, signed URL (expires in 1 hour)</li>
+              <li><code>src/lib/audit.ts</code> — Audit log writer</li>
+              <li><code>src/lib/utils.ts</code> — <code>cn()</code> class merging helper</li>
+            </ul>
+          </div>
+          <div>
+            <div class="phase-section-title">Infrastructure</div>
+            <ul class="feature-list">
+              <li>Full Prisma schema with 8 models and pgvector extension enabled</li>
+              <li>HNSW vector index SQL migration (<code>m=16, ef_construction=64</code>)</li>
+              <li>Tailwind config: Inter font, zinc colour ramp, editorial type scale</li>
+              <li>Root layout with <code>ClerkProvider</code>, dark mode, global styles</li>
+              <li><code>.env.local.example</code> with all required keys documented</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 1 -->
+      <div class="phase-card">
+        <div class="phase-header">
+          <div class="phase-number">01</div>
+          <div class="phase-header-text">
+            <div class="phase-name">Auth + Workspace Management</div>
+            <div class="phase-goal">Full authentication, workspace CRUD, member management, and RBAC</div>
+          </div>
+          <span class="phase-badge badge-green">User-Facing</span>
+        </div>
+        <div class="phase-body">
+          <div>
+            <div class="phase-section-title">Features</div>
+            <ul class="feature-list">
+              <li>Clerk webhook handler syncs users to DB on <code>user.created</code> / <code>user.updated</code> events. Validated with <code>svix</code> signature verification</li>
+              <li>Onboarding page — creates first workspace after sign-up. Auto-generates unique slug with slug preview</li>
+              <li>Workspace switcher — drop-down in sidebar shows all workspaces, option to create new</li>
+              <li>Member invite by email — adds registered users to workspace. Role: ADMIN or USER</li>
+              <li>Role management — OWNER can promote/demote members. Last OWNER protected from removal</li>
+              <li>Dashboard shell — 240px sidebar, workspace nav, user avatar + sign-out</li>
+              <li>Settings page — General tab (edit workspace, delete) and Members tab (table, invite form, role badges)</li>
+            </ul>
+          </div>
+          <div>
+            <div class="phase-section-title">API Endpoints</div>
+            <ul class="api-list">
+              <li class="api-item"><span class="method method-post">POST</span><span class="api-path">/api/workspaces</span></li>
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces</span></li>
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]</span></li>
+              <li class="api-item"><span class="method method-patch">PATCH</span><span class="api-path">/api/workspaces/[id]</span></li>
+              <li class="api-item"><span class="method method-delete">DELETE</span><span class="api-path">/api/workspaces/[id]</span></li>
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]/members</span></li>
+              <li class="api-item"><span class="method method-post">POST</span><span class="api-path">/api/workspaces/[id]/members</span></li>
+              <li class="api-item"><span class="method method-patch">PATCH</span><span class="api-path">/api/workspaces/[id]/members/[uid]</span></li>
+              <li class="api-item"><span class="method method-delete">DELETE</span><span class="api-path">/api/workspaces/[id]/members/[uid]</span></li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">UI Components (src/components/ui/)</div>
+            <div class="components-grid" style="margin-top:0">
+              <div class="component-chip">Button</div>
+              <div class="component-chip">Input</div>
+              <div class="component-chip">Badge</div>
+              <div class="component-chip">Card</div>
+              <div class="component-chip">Modal</div>
+              <div class="component-chip">Dropdown</div>
+              <div class="component-chip">Avatar</div>
+              <div class="component-chip">Toast</div>
+              <div class="component-chip">Label</div>
+              <div class="component-chip">Select</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 2 -->
+      <div class="phase-card">
+        <div class="phase-header">
+          <div class="phase-number">02</div>
+          <div class="phase-header-text">
+            <div class="phase-name">File Ingestion Pipeline</div>
+            <div class="phase-goal">Upload → parse → chunk → embed → index into pgvector with live status updates</div>
+          </div>
+          <span class="phase-badge badge-amber">Data Pipeline</span>
+        </div>
+        <div class="phase-body">
+          <div>
+            <div class="phase-section-title">Processing Pipeline</div>
+            <div class="pipeline">
+              <div class="pipeline-step">
+                <div class="pipeline-dot">1</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Upload &amp; Validate</div>
+                  <div class="pipeline-desc">Magic byte validation (not extension). Max 50MB. MIME: PDF, CSV, JSON, TXT, LOG. Storage key: <code>workspaces/{id}/files/{cuid}.ext</code></div>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <div class="pipeline-dot">2</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Parse (file-type aware)</div>
+                  <div class="pipeline-desc">PDF → <code>pdf-parse</code> (text + page count). CSV → <code>papaparse</code> (50-row blocks). JSON → key-path flattening. LOG → 2-minute time window grouping</div>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <div class="pipeline-dot">3</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Chunk</div>
+                  <div class="pipeline-desc">512 token max per chunk, 64-token overlap. Splits on sentence boundaries (<code>. </code> / <code>\n\n</code>). Token count ≈ <code>len / 4</code></div>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <div class="pipeline-dot">4</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Embed</div>
+                  <div class="pipeline-desc">Model: <code>openai/text-embedding-3-small</code> via OpenRouter. Batches of 100 chunks. 3× exponential backoff (1s → 2s → 4s). 1536-dimensional vectors</div>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <div class="pipeline-dot">5</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Index into pgvector</div>
+                  <div class="pipeline-desc">Raw SQL insert via <code>db.$executeRaw</code> (Prisma doesn't support vector writes natively). Batches of 50 rows. HNSW cosine index for retrieval</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="phase-section-title" style="margin-top:20px">Supported File Types</div>
+            <ul class="feature-list">
+              <li>PDF — text extraction, page count metadata</li>
+              <li>CSV — column headers extracted, row-group blocks</li>
+              <li>JSON — deep key-path flattening to text segments</li>
+              <li>TXT — raw text passthrough</li>
+              <li>LOG — ISO timestamp detection, 2-min window grouping</li>
+            </ul>
+          </div>
+          <div>
+            <div class="phase-section-title">API Endpoints</div>
+            <ul class="api-list">
+              <li class="api-item"><span class="method method-post">POST</span><span class="api-path">/api/workspaces/[id]/files</span></li>
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]/files</span></li>
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]/files/[fid]</span></li>
+              <li class="api-item"><span class="method method-delete">DELETE</span><span class="api-path">/api/workspaces/[id]/files/[fid]</span></li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Files Page UI</div>
+            <ul class="feature-list">
+              <li>Drag-and-drop upload zone. Brightens on hover. Click-to-browse fallback</li>
+              <li>Multi-file sequential upload queue with per-file progress</li>
+              <li>File table with status badges: QUEUED (clock) · PROCESSING (spinner) · READY (check) · FAILED (alert)</li>
+              <li>4-second polling when any file is in-progress — auto-stops when all done</li>
+              <li>File detail modal with metadata, signed download URL, retry option on FAILED</li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Lib Files</div>
+            <ul class="feature-list">
+              <li><code>src/lib/file-processor.ts</code> — pipeline orchestrator</li>
+              <li><code>src/lib/parsers/</code> — pdf, csv, json, text, log parsers</li>
+              <li><code>src/lib/chunker.ts</code> — text chunker with overlap</li>
+              <li><code>src/lib/embedder.ts</code> — embedding with retry</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 3 -->
+      <div class="phase-card">
+        <div class="phase-header">
+          <div class="phase-number">03</div>
+          <div class="phase-header-text">
+            <div class="phase-name">AI Query Layer — RAG + Semantic Search</div>
+            <div class="phase-goal">Natural language Q&amp;A over workspace files with streaming responses and source citations</div>
+          </div>
+          <span class="phase-badge badge-indigo">AI Core</span>
+        </div>
+        <div class="phase-body">
+          <div>
+            <div class="phase-section-title">RAG Pipeline (per message)</div>
+            <div class="pipeline">
+              <div class="pipeline-step">
+                <div class="pipeline-dot">1</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Embed Query</div>
+                  <div class="pipeline-desc">User message embedded with <code>text-embedding-3-small</code></div>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <div class="pipeline-dot">2</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Vector Search</div>
+                  <div class="pipeline-desc">Cosine similarity search on pgvector. Similarity threshold: 0.35. Top 6 chunks returned. Cached 10 min per query hash</div>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <div class="pipeline-dot">3</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Build Context + History</div>
+                  <div class="pipeline-desc">Context string from chunks with source attribution. Last 6 messages included for follow-up support</div>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <div class="pipeline-dot">4</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Stream Response</div>
+                  <div class="pipeline-desc">OpenRouter GPT OSS 20B via Vercel AI SDK <code>streamText</code>. Server-side system prompt. No hallucination — context-only answers</div>
+                </div>
+              </div>
+              <div class="pipeline-step">
+                <div class="pipeline-dot">5</div>
+                <div class="pipeline-content">
+                  <div class="pipeline-title">Persist &amp; Cite</div>
+                  <div class="pipeline-desc">Assistant message saved to DB with sources JSON. Citations rendered as clickable chips below each response</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="phase-section-title">API Endpoints</div>
+            <ul class="api-list">
+              <li class="api-item"><span class="method method-post">POST</span><span class="api-path">/api/workspaces/[id]/search</span></li>
+              <li class="api-item"><span class="method method-post">POST</span><span class="api-path">/api/workspaces/[id]/conversations</span></li>
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]/conversations</span></li>
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]/conversations/[cid]</span></li>
+              <li class="api-item"><span class="method method-delete">DELETE</span><span class="api-path">/api/workspaces/[id]/conversations/[cid]</span></li>
+              <li class="api-item"><span class="method method-post">POST</span><span class="api-path">/api/workspaces/[id]/conversations/[cid]/messages</span></li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Chat UI Features</div>
+            <ul class="feature-list">
+              <li>Two-panel layout: conversation list (280px) + active chat</li>
+              <li>Streaming text rendered token-by-token. Animated typing indicator</li>
+              <li>Assistant messages render Markdown via <code>react-markdown</code> + <code>remark-gfm</code></li>
+              <li>Code blocks with <code>react-syntax-highlighter</code> dark theme</li>
+              <li>Source citation chips (file name + similarity %) below each response</li>
+              <li>Auto-resize textarea (max 4 rows). Send on Ctrl+Enter. 2000 char limit</li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Search Page</div>
+            <ul class="feature-list">
+              <li>Debounced live search (400ms). Result cards with similarity score bars</li>
+              <li>Query term highlighting in excerpts. File type icon per result</li>
+              <li>Cmd+K command palette: recent conversations, files, quick actions</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 4 -->
+      <div class="phase-card">
+        <div class="phase-header">
+          <div class="phase-number">04</div>
+          <div class="phase-header-text">
+            <div class="phase-name">Insight Engine</div>
+            <div class="phase-goal">Auto-generate file summaries, key issue extraction, and trend detection across workspace data</div>
+          </div>
+          <span class="phase-badge badge-teal">Intelligence</span>
+        </div>
+        <div class="phase-body">
+          <div>
+            <div class="phase-section-title">Insight Types</div>
+            <ul class="feature-list">
+              <li><strong>FILE_SUMMARY</strong> — Generated automatically after each file is processed. Returns title, 2–3 paragraph summary, 3–6 key points, document type, and time range</li>
+              <li><strong>KEY_ISSUES</strong> — Workspace-level. Analyses summaries of the 10 most recent files. Returns up to 8 issues with severity (critical/high/medium/low), source files, and suggested actions</li>
+              <li><strong>TREND</strong> — Pattern detection across documents. Identifies repeated events, anomalies, and temporal patterns</li>
+              <li><strong>ANOMALY</strong> — Reserved for future use</li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Lib File</div>
+            <ul class="feature-list">
+              <li><code>src/lib/insight-generator.ts</code> — <code>generateFileSummary()</code>, <code>extractKeyIssues()</code>, <code>identifyTrends()</code></li>
+              <li>LLM responses always JSON-parsed inside try/catch. Malformed output sets insight to FAILED, never a 500</li>
+              <li>Insight content stored server-side only — raw LLM output never passed to client</li>
+            </ul>
+          </div>
+          <div>
+            <div class="phase-section-title">API Endpoints</div>
+            <ul class="api-list">
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]/insights</span></li>
+              <li class="api-item"><span class="method method-post">POST</span><span class="api-path">/api/workspaces/[id]/insights/generate</span></li>
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]/files/[fid]/insights</span></li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Insights UI</div>
+            <ul class="feature-list">
+              <li>Bento grid layout — Key Issues full-width top row, Trends + recent file summaries below</li>
+              <li>Severity badges: critical (red) · high (amber) · medium (yellow) · low (zinc)</li>
+              <li>Stale banner: "Data may be outdated — regenerate" shown when <code>isStale = true</code></li>
+              <li>"Regenerate all" button (ADMIN/OWNER only) — rate limited to 5 triggers/hr per workspace</li>
+              <li>File detail modal gains a Summary tab with key points and document type</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 5 -->
+      <div class="phase-card">
+        <div class="phase-header">
+          <div class="phase-number">05</div>
+          <div class="phase-header-text">
+            <div class="phase-name">Dashboard + Full UI Assembly</div>
+            <div class="phase-goal">Bento dashboard with stats, activity feed, analytics, and complete UI polish</div>
+          </div>
+          <span class="phase-badge badge-green">UI/UX</span>
+        </div>
+        <div class="phase-body">
+          <div>
+            <div class="phase-section-title">Dashboard Layout (4 Rows)</div>
+            <ul class="feature-list">
+              <li><strong>Row 1 — Stat cards (×4):</strong> Total files (+delta), Ready/Processing/Failed bar, Chunks indexed, AI conversations</li>
+              <li><strong>Row 2 — Activity + Chart:</strong> Activity feed timeline (auto-refresh 60s) + Recharts BarChart for file type distribution (PDF: indigo, CSV: teal, JSON: amber, TXT/LOG: zinc)</li>
+              <li><strong>Row 3 — Insights + Files:</strong> Key Issues card (top 3 with severity badges) + Recent files list (last 4 uploads)</li>
+              <li><strong>Row 4 — Quick actions:</strong> Upload files · Ask a question · View insights · Manage members</li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Files Page Enhancements</div>
+            <ul class="feature-list">
+              <li>Header bar: total files, storage used, last upload time</li>
+              <li>Filter pills: All / Ready / Processing / Failed</li>
+              <li>Sortable columns: name, date, size</li>
+              <li>Client-side filename search (no extra API calls)</li>
+            </ul>
+          </div>
+          <div>
+            <div class="phase-section-title">API Endpoint</div>
+            <ul class="api-list">
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/workspaces/[id]/stats</span></li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Shared Components Added</div>
+            <ul class="feature-list">
+              <li><code>EmptyState</code> — icon, title, description, optional CTA. Used on all 5 pages</li>
+              <li><code>Skeleton</code> — <code>SkeletonLine</code> / <code>SkeletonCard</code> / <code>SkeletonTable</code> with animate-pulse</li>
+              <li>Suspense boundaries with skeleton fallbacks for each dashboard card independently</li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Navigation Polish</div>
+            <ul class="feature-list">
+              <li>Active link: indigo left border + indigo text</li>
+              <li>Notification dot on Files nav if any file is PROCESSING</li>
+              <li>Workspace stats below name: "N files · N members"</li>
+              <li>Keyboard shortcut hints on hover</li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Responsive Breakpoints</div>
+            <ul class="feature-list">
+              <li>Desktop 1280px+: full sidebar + Bento grid</li>
+              <li>Tablet 768–1280px: icon-only sidebar + 2-col grid</li>
+              <li>Mobile &lt;768px: hamburger drawer + single column</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- PHASE 6 -->
+      <div class="phase-card">
+        <div class="phase-header">
+          <div class="phase-number">06</div>
+          <div class="phase-header-text">
+            <div class="phase-name">Offline Awareness, Caching &amp; Hardening</div>
+            <div class="phase-goal">Service worker, IndexedDB cache, env validation, health check, and production polish</div>
+          </div>
+          <span class="phase-badge badge-amber">Production</span>
+        </div>
+        <div class="phase-body">
+          <div>
+            <div class="phase-section-title">Offline &amp; Caching</div>
+            <ul class="feature-list">
+              <li>Service worker (<code>public/sw.js</code>): Network-first for API calls, Cache-first for static assets. Falls back to IndexedDB on network failure</li>
+              <li><code>src/lib/sw-cache.ts</code> — IndexedDB helpers with TTL expiry. GET-only (never caches mutations)</li>
+              <li>Client-side cache: workspace list (5 min), file list (2 min), search results (10 min), insights (10 min)</li>
+              <li>Offline banner: fixed top, amber text, fades out 3s after reconnection</li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Production Hardening</div>
+            <ul class="feature-list">
+              <li><code>src/lib/env.ts</code> — Zod schema validates all env vars at startup. App refuses to start with missing config</li>
+              <li>Structured JSON request logging (<code>src/lib/logger.ts</code>) for log aggregators</li>
+              <li>Rate limit response headers: <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, <code>X-RateLimit-Reset</code></li>
+              <li>Streaming error recovery: mid-stream OpenRouter failures send a graceful SSE error event, never crash the stream</li>
+              <li>Confirmation dialogs on all destructive actions (delete file, delete workspace, remove member)</li>
+            </ul>
+          </div>
+          <div>
+            <div class="phase-section-title">API Endpoint</div>
+            <ul class="api-list">
+              <li class="api-item"><span class="method method-get">GET</span><span class="api-path">/api/health</span></li>
+            </ul>
+            <p style="font-size:12px;color:var(--text-3);margin:8px 0 20px">Returns DB + Redis connectivity status. 200 if healthy, 503 if degraded. No sensitive info exposed.</p>
+
+            <div class="phase-section-title">UI Polish</div>
+            <ul class="feature-list">
+              <li>Global <code>&lt;Toaster&gt;</code> in root layout (bottom-right)</li>
+              <li><code>focus-visible</code> ring (indigo-500, 2px offset) on all interactive elements</li>
+              <li><code>aria-label</code> on all icon-only buttons</li>
+              <li>Spinner + disabled state on all submit buttons during API calls</li>
+              <li>Escape key closes any open modal</li>
+            </ul>
+
+            <div class="phase-section-title" style="margin-top:20px">Other Deliverables</div>
+            <ul class="feature-list">
+              <li>Error boundary pages (<code>app/error.tsx</code>, <code>app/(dashboard)/error.tsx</code>)</li>
+              <li>404 page with consistent dark styling</li>
+              <li><code>README.md</code> with setup instructions, folder structure, deployment notes</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- SCHEMA -->
+<section id="schema">
+  <div class="container">
+    <div class="section-label">Database</div>
+    <h2 class="section-title">Prisma Schema Models</h2>
+    <p class="section-desc">NeonDB (Postgres) with pgvector. All foreign key relationships cascade correctly. Vector index uses HNSW with cosine ops.</p>
+
+    <div class="schema-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Key Fields</th>
+            <th>Purpose</th>
+            <th>Relations</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>User</td>
+            <td><code>clerkId</code> <code>email</code> <code>name</code> <code>avatarUrl</code></td>
+            <td>Synced from Clerk webhooks. One user can belong to many workspaces</td>
+            <td>WorkspaceMember, File, Conversation, AuditLog</td>
+          </tr>
+          <tr>
+            <td>Workspace</td>
+            <td><code>name</code> <code>slug (unique)</code> <code>description</code></td>
+            <td>Tenant boundary. All data is scoped to a workspace</td>
+            <td>WorkspaceMember, File, Conversation, AuditLog, Insight</td>
+          </tr>
+          <tr>
+            <td>WorkspaceMember</td>
+            <td><code>role: OWNER|ADMIN|USER</code> <code>joinedAt</code></td>
+            <td>RBAC join table. Unique constraint on (workspaceId, userId)</td>
+            <td>Workspace, User</td>
+          </tr>
+          <tr>
+            <td>File</td>
+            <td><code>status: QUEUED|PROCESSING|READY|FAILED</code> <code>storageKey</code> <code>fileType</code> <code>sizeBytes</code> <code>chunkCount</code></td>
+            <td>Uploaded file record. <code>storageKey</code> maps to Supabase S3 object</td>
+            <td>Workspace, User, Chunk, Insight</td>
+          </tr>
+          <tr>
+            <td>Chunk</td>
+            <td><code>content</code> <code>chunkIndex</code> <code>tokenCount</code> <code>embedding vector(1536)</code> <code>metadata (Json)</code></td>
+            <td>Text segments with embeddings. Queried by pgvector for RAG retrieval</td>
+            <td>File</td>
+          </tr>
+          <tr>
+            <td>Conversation</td>
+            <td><code>title</code> <code>workspaceId</code> <code>userId</code></td>
+            <td>Container for a chat session between user and AI</td>
+            <td>Workspace, User, Message</td>
+          </tr>
+          <tr>
+            <td>Message</td>
+            <td><code>role: user|assistant</code> <code>content</code> <code>sources (Json)</code></td>
+            <td>Individual message. <code>sources</code> stores chunk IDs + similarity scores</td>
+            <td>Conversation</td>
+          </tr>
+          <tr>
+            <td>Insight</td>
+            <td><code>type: FILE_SUMMARY|KEY_ISSUES|TREND|ANOMALY</code> <code>content (Markdown)</code> <code>isStale</code> <code>metadata (Json)</code></td>
+            <td>AI-generated structured insights. Linked to workspace or specific file</td>
+            <td>Workspace, File (optional)</td>
+          </tr>
+          <tr>
+            <td>AuditLog</td>
+            <td><code>action</code> <code>metadata (Json)</code> <code>createdAt</code></td>
+            <td>Immutable event log. Actions: file.upload, file.delete, member.invite, query.run, workspace.create</td>
+            <td>Workspace, User</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- SECURITY -->
+<section id="security">
+  <div class="container">
+    <div class="section-label">Security</div>
+    <h2 class="section-title">Security Architecture</h2>
+    <p class="section-desc">Security is enforced at every layer — never trusted from the client, always validated server-side.</p>
+
+    <div class="security-grid">
+      <div class="security-item">
+        <div class="security-icon">🔐</div>
+        <div class="security-text"><strong>No DB calls in frontend.</strong> All data access via typed API route handlers only.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">🪪</div>
+        <div class="security-text"><strong>Clerk JWT validated server-side</strong> on every protected route via <code>requireAuth()</code>.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">🏢</div>
+        <div class="security-text"><strong>Workspace RBAC enforced in API middleware.</strong> Role hierarchy: OWNER &gt; ADMIN &gt; USER. Never trusted from client.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">⚡</div>
+        <div class="security-text"><strong>Rate limiting on all AI and upload endpoints</strong> via Upstash Redis sliding window limiter.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">✅</div>
+        <div class="security-text"><strong>Zod validation on all API inputs.</strong> Malformed requests rejected at the boundary with a 400 error.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">💉</div>
+        <div class="security-text"><strong>SQL injection impossible by design.</strong> Prisma parameterised queries only. pgvector raw queries use <code>$queryRaw</code> template literals.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">📁</div>
+        <div class="security-text"><strong>File uploads validated by magic bytes,</strong> not extension or Content-Type header. Storage keys derived from cuid — never user filenames.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">🔗</div>
+        <div class="security-text"><strong>Signed URLs for all file access.</strong> Bucket is never public. URLs expire in 1 hour.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">🤖</div>
+        <div class="security-text"><strong>System prompt is server-side only.</strong> OpenRouter API key has no <code>NEXT_PUBLIC_</code> prefix — never exposed to client.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">🪝</div>
+        <div class="security-text"><strong>Clerk webhook signature validated</strong> with <code>svix</code> before processing. Returns 400 on invalid signature.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">👑</div>
+        <div class="security-text"><strong>Last OWNER protected.</strong> Cannot remove the last workspace owner. Owners cannot remove themselves.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">🌐</div>
+        <div class="security-text"><strong>Environment validated at startup</strong> via Zod. App refuses to start with missing or malformed config.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">💬</div>
+        <div class="security-text"><strong>Conversation ownership validated.</strong> conversationId verified to belong to authenticated user's workspace before message access.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">🛡️</div>
+        <div class="security-text"><strong>Processing errors never leak stack traces</strong> to client. Error message stored in DB, generic response returned.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">📋</div>
+        <div class="security-text"><strong>Source citations contain only</strong> chunkId, fileId, fileName — never raw chunk content in the citation object.</div>
+      </div>
+      <div class="security-item">
+        <div class="security-icon">🗂️</div>
+        <div class="security-text"><strong>Service worker caches GET responses only.</strong> Auth tokens scrubbed from IndexedDB before storage.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DESIGN -->
+<section id="design">
+  <div class="container">
+    <div class="section-label">Design System</div>
+    <h2 class="section-title">Visual Design System</h2>
+    <p class="section-desc">Dark mode first. Minimalist AI-native SaaS aesthetic inspired by Linear, Vercel, Notion, and Stripe.</p>
+
+    <div class="color-row">
+      <div class="color-chip"><div class="color-swatch" style="background:#09090b"></div><div class="color-name">bg<br>zinc-950</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#18181b"></div><div class="color-name">surface<br>zinc-900</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#27272a"></div><div class="color-name">surface2<br>zinc-800</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#3f3f46"></div><div class="color-name">border<br>zinc-700</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#6366f1"></div><div class="color-name">accent<br>indigo-500</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#a5b4fc"></div><div class="color-name">accent-lt<br>indigo-300</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#22c55e"></div><div class="color-name">success<br>green-500</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#f59e0b"></div><div class="color-name">warning<br>amber-500</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#ef4444"></div><div class="color-name">danger<br>red-500</div></div>
+      <div class="color-chip"><div class="color-swatch" style="background:#14b8a6"></div><div class="color-name">teal<br>teal-500</div></div>
+    </div>
+
+    <div class="schema-table-wrap" style="margin-bottom:28px">
+      <table>
+        <thead><tr><th>Role</th><th>Size</th><th>Weight</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td>display</td><td>3.5rem / 1.1</td><td>700</td><td>Hero headings</td></tr>
+          <tr><td>heading</td><td>2rem / 1.2</td><td>700</td><td>Page titles (24px)</td></tr>
+          <tr><td>subheading</td><td>1.25rem / 1.4</td><td>600</td><td>Card titles, section labels</td></tr>
+          <tr><td>body</td><td>14px / 1.7</td><td>400</td><td>Body text (zinc-300)</td></tr>
+          <tr><td>label</td><td>11px</td><td>600 + uppercase + tracking</td><td>Section eyebrows, column headers</td></tr>
+          <tr><td>mono</td><td>12px</td><td>400</td><td>Code, API paths, storage keys</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <div class="callout-icon">✨</div>
+      <div class="callout-text"><strong>Glassmorphism is used selectively</strong> — only for modals and the command palette: <code>backdrop-blur-md bg-zinc-900/80 border border-zinc-800</code>. Not on backgrounds or cards.</div>
+    </div>
+  </div>
+</section>
+
+
+
+<!-- ENV -->
+<section id="env">
+  <div class="container">
+    <div class="section-label">Configuration</div>
+    <h2 class="section-title">Environment Variables</h2>
+    <p class="section-desc">All variables validated at startup via Zod. The app will not start if any required variable is missing or malformed.</p>
+
+    <div class="env-group">
+      <div class="env-group-title">Authentication — Clerk</div>
+      <div class="env-item"><div class="env-key">NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</div><div class="env-desc">Clerk publishable key (public, safe for client)</div></div>
+      <div class="env-item"><div class="env-key">CLERK_SECRET_KEY</div><div class="env-desc">Clerk secret key — server-side only</div></div>
+      <div class="env-item"><div class="env-key">CLERK_WEBHOOK_SECRET</div><div class="env-desc">Signing secret for svix webhook validation</div></div>
+      <div class="env-item"><div class="env-key">NEXT_PUBLIC_CLERK_SIGN_IN_URL</div><div class="env-desc"><code>/sign-in</code></div></div>
+      <div class="env-item"><div class="env-key">NEXT_PUBLIC_CLERK_SIGN_UP_URL</div><div class="env-desc"><code>/sign-up</code></div></div>
+      <div class="env-item"><div class="env-key">NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL</div><div class="env-desc"><code>/dashboard</code></div></div>
+      <div class="env-item"><div class="env-key">NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL</div><div class="env-desc"><code>/onboarding</code></div></div>
+    </div>
+
+    <div class="env-group">
+      <div class="env-group-title">Database — NeonDB</div>
+      <div class="env-item"><div class="env-key">DATABASE_URL</div><div class="env-desc">NeonDB Postgres connection string with pgvector extension</div></div>
+    </div>
+
+    <div class="env-group">
+      <div class="env-group-title">Cache &amp; Rate Limiting — Upstash Redis</div>
+      <div class="env-item"><div class="env-key">UPSTASH_REDIS_REST_URL</div><div class="env-desc">Upstash Redis REST endpoint URL</div></div>
+      <div class="env-item"><div class="env-key">UPSTASH_REDIS_REST_TOKEN</div><div class="env-desc">Upstash Redis REST auth token</div></div>
+    </div>
+
+    <div class="env-group">
+      <div class="env-group-title">Object Storage — Supabase S3</div>
+      <div class="env-item"><div class="env-key">SUPABASE_S3_ENDPOINT</div><div class="env-desc">Supabase S3-compatible storage endpoint URL</div></div>
+      <div class="env-item"><div class="env-key">SUPABASE_S3_ACCESS_KEY_ID</div><div class="env-desc">S3 access key ID from Supabase project settings</div></div>
+      <div class="env-item"><div class="env-key">SUPABASE_S3_SECRET_ACCESS_KEY</div><div class="env-desc">S3 secret access key — server-side only</div></div>
+      <div class="env-item"><div class="env-key">SUPABASE_S3_BUCKET_NAME</div><div class="env-desc">Storage bucket name in Supabase</div></div>
+      <div class="env-item"><div class="env-key">SUPABASE_S3_REGION</div><div class="env-desc">Region (e.g. <code>ap-southeast-1</code>)</div></div>
+    </div>
+
+    <div class="env-group">
+      <div class="env-group-title">AI — OpenRouter</div>
+      <div class="env-item"><div class="env-key">OPENROUTER_API_KEY</div><div class="env-desc">OpenRouter API key — server-side only, no NEXT_PUBLIC_ prefix</div></div>
+      <div class="env-item"><div class="env-key">OPENROUTER_BASE_URL</div><div class="env-desc"><code>https://openrouter.ai/api/v1</code></div></div>
+    </div>
+
+    <div class="env-group">
+      <div class="env-group-title">App</div>
+      <div class="env-item"><div class="env-key">NEXT_PUBLIC_APP_URL</div><div class="env-desc"><code>http://localhost:3000</code> in development, production URL in production</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-logo">⚡ intelliOps</div>
+    <div class="footer-meta">AI Operations Intelligence Platform · Next.js 16 · App Router · pgvector · Supabase S3</div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import type { WorkspaceRole } from '@prisma/client'
 
@@ -24,7 +24,9 @@ const ROLE_LEVEL: Record<WorkspaceRole, number> = {
 
 /**
  * Authenticate the current Clerk user and resolve their DB record.
- * Throws a Response if not authenticated or not found in DB.
+ * If the user is authenticated via Clerk but doesn't exist in the DB yet
+ * (e.g. webhook hasn't fired — common in local dev), create them on-the-fly.
+ * Throws a Response if not authenticated.
  */
 export async function requireAuth() {
   const { userId: clerkUserId } = await auth()
@@ -33,13 +35,37 @@ export async function requireAuth() {
     throw Response.json({ error: 'Unauthorised' }, { status: 401 })
   }
 
-  const user = await prisma.user.findUnique({
+  let user = await prisma.user.findUnique({
     where: { clerkId: clerkUserId },
     select: { id: true, email: true, name: true, avatarUrl: true },
   })
 
+  // Just-in-time sync: create DB user from Clerk profile if webhook hasn't delivered yet
   if (!user) {
-    throw Response.json({ error: 'User not found in database' }, { status: 401 })
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      throw Response.json({ error: 'Unable to resolve user profile' }, { status: 401 })
+    }
+
+    const email = clerkUser.primaryEmailAddress?.emailAddress
+      ?? clerkUser.emailAddresses[0]?.emailAddress
+      ?? ''
+    const nameParts = [clerkUser.firstName, clerkUser.lastName].filter(Boolean)
+    const name = nameParts.length > 0 ? nameParts.join(' ') : null
+
+    user = await prisma.user.upsert({
+      where: { clerkId: clerkUserId },
+      update: {}, // no-op if another request just created it (race condition guard)
+      create: {
+        clerkId: clerkUserId,
+        email,
+        name,
+        avatarUrl: clerkUser.imageUrl ?? null,
+      },
+      select: { id: true, email: true, name: true, avatarUrl: true },
+    })
+
+    console.log(`[JIT sync] User created in DB: ${clerkUserId} (${email})`)
   }
 
   return { clerkUserId, user }

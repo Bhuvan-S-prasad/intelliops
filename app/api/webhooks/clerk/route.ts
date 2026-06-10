@@ -75,8 +75,14 @@ export async function POST(req: Request) {
     const email = getEmail(data)
     const name = getFullName(data)
 
-    await prisma.user.create({
-      data: {
+    await prisma.user.upsert({
+      where: { clerkId: data.id },
+      update: {
+        email,
+        name,
+        avatarUrl: data.image_url,
+      },
+      create: {
         clerkId: data.id,
         email,
         name,
@@ -84,7 +90,7 @@ export async function POST(req: Request) {
       },
     })
 
-    console.log(`User created: ${data.id} (${email})`)
+    console.log(`User created (upserted): ${data.id} (${email})`)
   }
 
   if (type === 'user.updated') {

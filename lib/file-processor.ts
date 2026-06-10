@@ -8,7 +8,9 @@ import { parseCsv } from './parsers/csv-parser'
 import { parseJson } from './parsers/json-parser'
 import { parseText } from './parsers/text-parser'
 import { parseLog } from './parsers/log-parser'
+import { parseImage } from './parsers/image-parser'
 import { randomUUID } from 'crypto'
+import { generateFileSummary } from './insight-generator'
 
 export async function processFile(fileId: string): Promise<void> {
   try {
@@ -21,6 +23,7 @@ export async function processFile(fileId: string): Promise<void> {
         workspaceId: true,
         fileType: true,
         storageKey: true,
+        mimeType: true,
       },
     })
 
@@ -45,6 +48,9 @@ export async function processFile(fileId: string): Promise<void> {
       case 'LOG':
         parseResult = await parseLog(buffer)
         break
+      case 'IMAGE':
+        parseResult = await parseImage(buffer, file.mimeType)
+        break
       default:
         throw new Error(`Unsupported file type: ${file.fileType}`)
     }
@@ -60,7 +66,7 @@ export async function processFile(fileId: string): Promise<void> {
     }
 
     // 5. Save chunks to DB (batch inserts in transactions of size 50)
-    const batchSize = 50
+    const batchSize = 25
     for (let i = 0; i < chunks.length; i += batchSize) {
       const chunkBatch = chunks.slice(i, i + batchSize)
       const embeddingBatch = embeddings.slice(i, i + batchSize)
@@ -90,7 +96,11 @@ export async function processFile(fileId: string): Promise<void> {
               NOW()
             )
           `
-        })
+        }),
+        {
+          maxWait: 15000,
+          timeout: 30000,
+        }
       )
     }
 
@@ -106,6 +116,13 @@ export async function processFile(fileId: string): Promise<void> {
       },
     })
     console.log(`[file-processor] Successfully processed file ${fileId}`)
+
+    try {
+      await generateFileSummary(fileId)
+      console.log(`[file-processor] Successfully generated summary for file ${fileId}`)
+    } catch (summaryErr) {
+      console.error(`[file-processor] Failed to generate summary for file ${fileId}:`, summaryErr)
+    }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error during file ingestion'
     console.error(`[file-processor] Failed to process file ${fileId}:`, err)

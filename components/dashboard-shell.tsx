@@ -16,6 +16,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
@@ -49,6 +50,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     currentUserRole,
     isLoading,
     switchWorkspace,
+    members,
   } = useWorkspace()
 
   const [isCollapsed, setIsCollapsed] = React.useState(false)
@@ -66,13 +68,83 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [])
 
+  const [stats, setStats] = React.useState<{ totalFiles: number; processingFiles: number } | null>(null)
+
+  React.useEffect(() => {
+    if (!activeWorkspace) return
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`/api/workspaces/${activeWorkspace.id}/stats`)
+        if (res.ok) {
+          const data = await res.json()
+          setStats({
+            totalFiles: data.totalFiles,
+            processingFiles: data.processingFiles,
+          })
+        }
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    fetchStats()
+    const interval = setInterval(fetchStats, 15000)
+    return () => clearInterval(interval)
+  }, [activeWorkspace])
+
+  // Navigation shortcuts list
   const navItems = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Search', href: activeWorkspace ? `/${activeWorkspace.slug}/search` : '/search', icon: Search },
-    { name: 'Files', href: '/files', icon: FolderOpen },
-    { name: 'Conversations', href: activeWorkspace ? `/${activeWorkspace.slug}/chat` : '/conversations', icon: MessageSquare },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Dashboard', href: activeWorkspace ? `/${activeWorkspace.slug}` : '/dashboard', icon: LayoutDashboard, shortcut: 'G then D' },
+    { name: 'Search', href: activeWorkspace ? `/${activeWorkspace.slug}/search` : '/search', icon: Search, shortcut: 'G then S' },
+    { name: 'Files', href: activeWorkspace ? `/${activeWorkspace.slug}/files` : '/files', icon: FolderOpen, shortcut: 'G then F' },
+    { name: 'Conversations', href: activeWorkspace ? `/${activeWorkspace.slug}/chat` : '/conversations', icon: MessageSquare, shortcut: 'G then C' },
+    { name: 'Settings', href: '/settings', icon: Settings, shortcut: 'G then T' },
   ]
+
+  // Keyboard shortcut listener
+  React.useEffect(() => {
+    let lastKey = ''
+    let timer: NodeJS.Timeout
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement)?.isContentEditable
+      ) {
+        return
+      }
+
+      const key = e.key.toLowerCase()
+
+      if (key === 'g') {
+        lastKey = 'g'
+        clearTimeout(timer)
+        timer = setTimeout(() => { lastKey = '' }, 1000)
+        return
+      }
+
+      if (lastKey === 'g') {
+        if (key === 'd') {
+          router.push(activeWorkspace ? `/${activeWorkspace.slug}` : '/dashboard')
+        } else if (key === 's') {
+          router.push(activeWorkspace ? `/${activeWorkspace.slug}/search` : '/search')
+        } else if (key === 'f') {
+          router.push(activeWorkspace ? `/${activeWorkspace.slug}/files` : '/files')
+        } else if (key === 'c') {
+          router.push(activeWorkspace ? `/${activeWorkspace.slug}/chat` : '/conversations')
+        } else if (key === 't') {
+          router.push('/settings')
+        }
+        lastKey = ''
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      clearTimeout(timer)
+    }
+  }, [activeWorkspace, router])
 
   if (isLoading) {
     return (
@@ -96,7 +168,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
 
   const handleCreateWorkspace = () => {
     setIsMobileOpen(false)
-    router.push('/onboarding')
+    router.push('/onboarding?new=1')
   }
 
   const sidebarContent = (
@@ -111,7 +183,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             </div>
             {!isCollapsed && (
               <span className="font-semibold text-lg tracking-tight bg-linear-to-r from-zinc-100 to-zinc-300 bg-clip-text text-transparent">
-                OpsIQ
+                IntelliOps
               </span>
             )}
           </div>
@@ -137,23 +209,24 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 {activeWorkspace?.name?.[0] || 'W'}
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" side="right" className="w-56 bg-zinc-900 border-zinc-800 text-zinc-100">
-                <DropdownMenuLabel className="text-zinc-400">Switch Workspace</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-zinc-800" />
-                {workspaces.map((w) => (
-                  <DropdownMenuItem
-                    key={w.id}
-                    onClick={() => switchWorkspace(w.id)}
-                    className={cn(
-                      "flex items-center justify-between text-zinc-300 focus:bg-zinc-800 focus:text-white cursor-pointer",
-                      w.id === activeWorkspace?.id && "bg-zinc-800/50 text-white font-medium"
-                    )}
-                  >
-                    <span className="truncate">{w.name}</span>
-                    {w.id === activeWorkspace?.id && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-zinc-400">Switch Workspace</DropdownMenuLabel>
+                  {workspaces.map((w) => (
+                    <DropdownMenuItem
+                      key={w.id}
+                      onClick={() => switchWorkspace(w.id)}
+                      className={cn(
+                        "flex items-center justify-between text-zinc-300 focus:bg-zinc-800 focus:text-white cursor-pointer",
+                        w.id === activeWorkspace?.id && "bg-zinc-800/50 text-white font-medium"
+                      )}
+                    >
+                      <span className="truncate">{w.name}</span>
+                      {w.id === activeWorkspace?.id && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator className="bg-zinc-800" />
                 <DropdownMenuItem
                   onClick={handleCreateWorkspace}
@@ -171,35 +244,36 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                   <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-800 text-xs font-bold text-zinc-300 group-hover:bg-zinc-700 transition-colors uppercase">
                     {activeWorkspace?.name?.[0] || 'W'}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 text-left">
                     <p className="truncate text-sm font-medium text-zinc-200">
                       {activeWorkspace?.name}
                     </p>
-                    <p className="text-[10px] text-zinc-500 capitalize">
-                      {currentUserRole?.toLowerCase()} member
+                    <p className="text-[10px] text-zinc-500">
+                      {stats ? `${stats.totalFiles} files` : '0 files'} · {members.length} members
                     </p>
                   </div>
                 </div>
                 <ChevronsUpDown className="h-4 w-4 shrink-0 text-zinc-500 group-hover:text-zinc-400 transition-colors" />
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 bg-zinc-900 border-zinc-800 text-zinc-100">
-                <DropdownMenuLabel className="text-zinc-400">Switch Workspace</DropdownMenuLabel>
-                <DropdownMenuSeparator className="bg-zinc-800" />
-                {workspaces.map((w) => (
-                  <DropdownMenuItem
-                    key={w.id}
-                    onClick={() => switchWorkspace(w.id)}
-                    className={cn(
-                      "flex items-center justify-between text-zinc-300 focus:bg-zinc-800 focus:text-white cursor-pointer",
-                      w.id === activeWorkspace?.id && "bg-zinc-800/50 text-white font-medium"
-                    )}
-                  >
-                    <span className="truncate">{w.name}</span>
-                    {w.id === activeWorkspace?.id && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-zinc-400">Switch Workspace</DropdownMenuLabel>
+                  {workspaces.map((w) => (
+                    <DropdownMenuItem
+                      key={w.id}
+                      onClick={() => switchWorkspace(w.id)}
+                      className={cn(
+                        "flex items-center justify-between text-zinc-300 focus:bg-zinc-800 focus:text-white cursor-pointer",
+                        w.id === activeWorkspace?.id && "bg-zinc-800/50 text-white font-medium"
+                      )}
+                    >
+                      <span className="truncate">{w.name}</span>
+                      {w.id === activeWorkspace?.id && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator className="bg-zinc-800" />
                 <DropdownMenuItem
                   onClick={handleCreateWorkspace}
@@ -216,8 +290,9 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         {/* Navigation Items */}
         <nav className="space-y-1 px-2">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+            const isActive = pathname === item.href || (item.href !== '/' && item.href !== '/dashboard' && pathname.startsWith(item.href))
             const Icon = item.icon
+            const isFilesItem = item.name === 'Files'
 
             if (isCollapsed) {
               return (
@@ -226,15 +301,23 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                     <Link
                       href={item.href}
                       className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100 transition-all mx-auto",
+                        "flex h-9 w-9 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100 transition-all mx-auto relative",
                         isActive && "bg-zinc-800 text-indigo-400 border border-zinc-700/50"
                       )}
                     />
                   }>
-                    <Icon className="h-4 w-4" />
+                    <div className="relative">
+                      <Icon className="h-4 w-4" />
+                      {isFilesItem && stats && stats.processingFiles > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+                      )}
+                    </div>
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="bg-zinc-950 border-zinc-800 text-zinc-100">
-                    {item.name}
+                  <TooltipContent side="right" className="bg-zinc-950 border-zinc-800 text-zinc-100 flex items-center gap-1.5">
+                    <span>{item.name}</span>
+                    <span className="text-[9px] font-mono text-zinc-650 bg-zinc-900 px-1 py-0.2 rounded border border-zinc-800">
+                      {item.shortcut}
+                    </span>
                   </TooltipContent>
                 </Tooltip>
               )
@@ -245,12 +328,24 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100 transition-all border border-transparent",
-                  isActive && "bg-zinc-800 text-zinc-100 border-zinc-700/50"
+                  "flex items-center justify-between rounded-md py-2 px-3 text-sm font-medium transition-all group relative border-l-2 border-transparent",
+                  isActive
+                    ? "bg-zinc-800/40 text-zinc-100 border-l-indigo-500 rounded-l-none pl-2.5"
+                    : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-100"
                 )}
               >
-                <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-indigo-400" : "text-zinc-400")} />
-                <span>{item.name}</span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="relative">
+                    <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-indigo-400" : "text-zinc-400")} />
+                    {isFilesItem && stats && stats.processingFiles > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+                    )}
+                  </div>
+                  <span className="truncate">{item.name}</span>
+                </div>
+                <span className="text-[9px] font-mono text-zinc-650 bg-zinc-950/80 px-1 py-0.2 rounded border border-zinc-850 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shrink-0">
+                  {item.shortcut}
+                </span>
               </Link>
             )
           })}
@@ -352,7 +447,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 font-bold text-white">
               O
             </div>
-            <span className="font-semibold text-zinc-100">OpsIQ</span>
+            <span className="font-semibold text-zinc-100">IntelliOps</span>
           </div>
 
           <div className="flex items-center gap-3">

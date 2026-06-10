@@ -22,6 +22,7 @@ import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { cn } from '@/lib/utils'
+import { EmptyState } from '@/components/empty-state'
 
 interface DBMessage {
   id: string
@@ -55,12 +56,23 @@ export default function ChatPage({
     if (activeWorkspace.slug !== workspaceSlug) {
       const matchingWorkspace = workspaces.find((w) => w.slug === workspaceSlug)
       if (matchingWorkspace) {
-        switchWorkspace(matchingWorkspace.id)
+        switchWorkspace(matchingWorkspace.id, true)
       } else {
         router.replace(`/${activeWorkspace.slug}/chat`)
       }
     }
   }, [workspaceSlug, activeWorkspace, workspaces, isWorkspaceLoading, switchWorkspace, router])
+
+  // Update page title and metadata
+  React.useEffect(() => {
+    if (activeWorkspace) {
+      document.title = `Conversations — ${activeWorkspace.name} | IntelliOps`
+      const metaDesc = document.querySelector('meta[name="description"]')
+      if (metaDesc) {
+        metaDesc.setAttribute('content', `Start a conversation with your data in workspace ${activeWorkspace.name}.`)
+      }
+    }
+  }, [activeWorkspace])
 
   if (isWorkspaceLoading || !activeWorkspace || activeWorkspace.slug !== workspaceSlug) {
     return (
@@ -391,7 +403,7 @@ function ChatWorkspaceContent({
                       </div>
                       <h3 className="text-sm font-semibold text-zinc-200">Conversation Grounded</h3>
                       <p className="text-xs text-zinc-400 max-w-sm leading-relaxed">
-                        Send a message. OpsIQ will extract semantic context and ground answers automatically from your files.
+                        Send a message. IntelliOps will extract semantic context and ground answers automatically from your files.
                       </p>
                     </div>
                   )}
@@ -506,14 +518,28 @@ function ChatWorkspaceContent({
             </div>
           </>
         ) : (
-          <div className="grow flex flex-col items-center justify-center text-center p-8 space-y-4">
-            <div className="h-12 w-12 bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center rounded-xl animate-pulse">
-              <MessageSquare className="h-6 w-6" />
-            </div>
-            <h2 className="text-base font-semibold text-zinc-200">OpsIQ AI Conversations</h2>
-            <p className="text-xs text-zinc-400 max-w-sm leading-relaxed">
-              Select an active conversation session from the directory sidebar, or click <strong>New Conversation</strong> to start query analysis.
-            </p>
+          <div className="grow flex flex-col items-center justify-center">
+            {conversations.length === 0 ? (
+              <EmptyState
+                icon={MessageSquare}
+                title="Start a conversation with your data"
+                description="Create a conversation to begin asking questions grounded in your workspace datasets."
+                action={{
+                  label: "New Conversation",
+                  onClick: handleCreateConversation,
+                }}
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
+                <div className="h-12 w-12 bg-zinc-900 border border-zinc-800 text-zinc-450 flex items-center justify-center rounded-xl">
+                  <MessageSquare className="h-6 w-6" />
+                </div>
+                <h2 className="text-sm font-semibold text-zinc-200">IntelliOps AI Conversations</h2>
+                <p className="text-xs text-zinc-400 max-w-sm leading-relaxed">
+                  Select an active conversation session from the directory sidebar, or click <strong>New Conversation</strong> to start query analysis.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </section>

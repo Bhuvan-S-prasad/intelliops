@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client'
 import { requireWorkspaceAccess } from '@/lib/auth'
 import { checkAiLimit } from '@/lib/rate-limit'
 import { embedChunks } from '@/lib/embedder'
+import { rewriteQuery } from '@/lib/query-rewriter'
+import { rerankChunks } from '@/lib/reranker'
 import { streamText } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { z } from 'zod'
@@ -81,16 +83,47 @@ export async function POST(
       },
     })
 
-    // 6. Generate embedding of the user's message
+    // 6. Optimize search query, run hybrid search, RRF merge, and LLM rerank
     let chunks: SearchResult[] = []
     try {
-      const embeddings = await embedChunks([content])
-      if (embeddings && embeddings.length > 0) {
-        const queryEmbedding = embeddings[0]
-        const queryEmbeddingStr = `[${queryEmbedding.join(',')}]`
+      // Step A: Rewrite/expand query
+      const rewrittenQuery = await rewriteQuery(content)
 
-        // 7. Query pgvector for the top 6 closest chunks (similarity > 0.35)
-        chunks = await prisma.$queryRaw<SearchResult[]>`
+      // Step B: Dense Vector Search
+      let chunksVector: SearchResult[] = []
+      try {
+        const embeddings = await embedChunks([rewrittenQuery])
+        if (embeddings && embeddings.length > 0) {
+          const queryEmbedding = embeddings[0]
+          const queryEmbeddingStr = `[${queryEmbedding.join(',')}]`
+
+          chunksVector = await prisma.$queryRaw<SearchResult[]>`
+            SELECT
+              c.id,
+              c."fileId",
+              c.content,
+              c.metadata,
+              c."chunkIndex",
+              f.name as "fileName",
+              f."fileType",
+              1 - (c.embedding <=> ${queryEmbeddingStr}::vector) as similarity
+            FROM "Chunk" c
+            JOIN "File" f ON f.id = c."fileId"
+            WHERE c."workspaceId" = ${workspaceId}
+              AND f.status = 'READY'
+              AND 1 - (c.embedding <=> ${queryEmbeddingStr}::vector) > 0.35
+            ORDER BY c.embedding <=> ${queryEmbeddingStr}::vector
+            LIMIT 15
+          `
+        }
+      } catch (vectorErr) {
+        console.warn('[messages-route] Vector retrieval failed:', vectorErr)
+      }
+
+      // Step C: Sparse Full-Text Search (simple config)
+      let chunksFts: SearchResult[] = []
+      try {
+        chunksFts = await prisma.$queryRaw<SearchResult[]>`
           SELECT
             c.id,
             c."fileId",
@@ -99,18 +132,52 @@ export async function POST(
             c."chunkIndex",
             f.name as "fileName",
             f."fileType",
-            1 - (c.embedding <=> ${queryEmbeddingStr}::vector) as similarity
+            ts_rank(to_tsvector('simple', c.content), websearch_to_tsquery('simple', ${rewrittenQuery})) as similarity
           FROM "Chunk" c
           JOIN "File" f ON f.id = c."fileId"
           WHERE c."workspaceId" = ${workspaceId}
             AND f.status = 'READY'
-            AND 1 - (c.embedding <=> ${queryEmbeddingStr}::vector) > 0.35
-          ORDER BY c.embedding <=> ${queryEmbeddingStr}::vector
-          LIMIT 6
+            AND to_tsvector('simple', c.content) @@ websearch_to_tsquery('simple', ${rewrittenQuery})
+          ORDER BY similarity DESC
+          LIMIT 15
         `
+      } catch (ftsErr) {
+        console.warn('[messages-route] FTS retrieval failed:', ftsErr)
       }
-    } catch (embedErr) {
-      console.warn('Vector retrieval failed. Bypassing context injection:', embedErr)
+
+      // Step D: Reciprocal Rank Fusion (RRF)
+      const rrfScores: Record<string, number> = {}
+      const chunkMap = new Map<string, SearchResult>()
+
+      const addRrfResults = (results: SearchResult[]) => {
+        results.forEach((chunk, index) => {
+          const rank = index + 1
+          const score = 1 / (60 + rank)
+          rrfScores[chunk.id] = (rrfScores[chunk.id] || 0) + score
+          
+          if (!chunkMap.has(chunk.id)) {
+            chunkMap.set(chunk.id, chunk)
+          } else {
+            const existing = chunkMap.get(chunk.id)!
+            if (chunk.similarity > existing.similarity) {
+              chunkMap.set(chunk.id, { ...existing, similarity: chunk.similarity })
+            }
+          }
+        })
+      }
+
+      addRrfResults(chunksVector)
+      addRrfResults(chunksFts)
+
+      const candidateChunks = Array.from(chunkMap.values()).sort((a, b) => {
+        return (rrfScores[b.id] || 0) - (rrfScores[a.id] || 0)
+      })
+
+      // Step E: LLM Reranking (top 6 chunks)
+      chunks = await rerankChunks(content, candidateChunks.slice(0, 15), 6)
+      console.log('[messages-route] Final Reranked Chunks count:', chunks.length)
+    } catch (retrievalErr) {
+      console.error('[messages-route] Hybrid search/reranking pipeline failed. Bypassing context injection:', retrievalErr)
     }
 
     // 8. Build context string
@@ -119,7 +186,7 @@ export async function POST(
       .join('\n\n')
 
     // 9. Build system prompt instruction
-    const systemPrompt = `You are OpsIQ, an AI operations intelligence assistant. You help users analyse operational data — logs, reports, CSVs, and documents — that have been uploaded to their workspace.
+    const systemPrompt = `You are IntelliOps, an AI operations intelligence assistant. You help users analyse operational data — logs, reports, CSVs, and documents — that have been uploaded to their workspace.
 
 Answer the user's question based ONLY on the context provided below. If the answer is not in the context, say so clearly. Do not hallucinate information.
 
@@ -151,7 +218,7 @@ ${contextString}`
     })
 
     const result = await streamText({
-      model: openrouter('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'),
+      model: openrouter.chat('openai/gpt-oss-20b:free'),
       system: systemPrompt,
       messages: formattedMessages,
       onFinish: async ({ text }) => {
