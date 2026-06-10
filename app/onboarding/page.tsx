@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useUser, SignOutButton } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -13,17 +13,57 @@ import { LogOut, LayoutGrid } from 'lucide-react'
 export default function OnboardingPage() {
   const { user, isLoaded } = useUser()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isNewWorkspace = searchParams.get('new') === '1'
   const [name, setName] = React.useState('')
   const [description, setDescription] = React.useState('')
   const [isLoading, setIsLoading] = React.useState(false)
+  const [isCheckingWorkspaces, setIsCheckingWorkspaces] = React.useState(true)
 
-  // Wait for Clerk user to load
-  if (!isLoaded) {
+  React.useEffect(() => {
+    if (!isLoaded || !user) return
+
+    // Skip workspace check when explicitly creating a new workspace
+    if (isNewWorkspace) {
+      setIsCheckingWorkspaces(false)
+      return
+    }
+
+    let active = true
+    const checkWorkspaces = async () => {
+      try {
+        const res = await fetch('/api/workspaces')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.workspaces && data.workspaces.length > 0 && active) {
+            router.replace('/dashboard')
+            return
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check workspaces:', err)
+      } finally {
+        if (active) {
+          setIsCheckingWorkspaces(false)
+        }
+      }
+    }
+
+    checkWorkspaces()
+    return () => {
+      active = false
+    }
+  }, [isLoaded, user, router, isNewWorkspace])
+
+  // Wait for Clerk user to load or workspaces to be checked
+  if (!isLoaded || (isLoaded && user && isCheckingWorkspaces)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100">
         <div className="flex flex-col items-center gap-3">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          <p className="text-sm text-zinc-400">Loading user context...</p>
+          <p className="text-sm text-zinc-400">
+            {!isLoaded ? 'Loading user context...' : 'Aligning workspace context...'}
+          </p>
         </div>
       </div>
     )
@@ -66,8 +106,8 @@ export default function OnboardingPage() {
       // Set the activeWorkspaceId cookie client-side too to be safe
       document.cookie = `activeWorkspaceId=${data.workspace.id}; path=/; max-age=31536000; SameSite=Lax`
 
-      router.refresh()
-      router.push('/dashboard')
+      // Redirect directly to the workspace slug to avoid timing issues
+      router.push(`/${data.workspace.slug}`)
     } catch (err) {
       console.error(err)
       const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
@@ -94,10 +134,10 @@ export default function OnboardingPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-600 text-white font-bold text-lg">
               O
             </div>
-            <span className="text-2xl font-semibold tracking-tight">OpsIQ</span>
+            <span className="text-2xl font-semibold tracking-tight">IntelliOps</span>
           </div>
           <p className="text-sm text-zinc-400">
-            Lets get started. Create your first workspace.
+            {isNewWorkspace ? 'Create a new workspace to organize your data.' : 'Lets get started. Create your first workspace.'}
           </p>
         </div>
 

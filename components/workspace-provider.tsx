@@ -38,7 +38,7 @@ type WorkspaceContextType = {
   currentUserRole: 'OWNER' | 'ADMIN' | 'USER' | null
   members: Member[]
   isLoading: boolean
-  switchWorkspace: (workspaceId: string) => Promise<void>
+  switchWorkspace: (workspaceId: string, skipNavigation?: boolean) => Promise<void>
   refreshActiveWorkspace: () => Promise<void>
 }
 
@@ -54,6 +54,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [currentUserRole, setCurrentUserRole] = React.useState<'OWNER' | 'ADMIN' | 'USER' | null>(null)
   const [members, setMembers] = React.useState<Member[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
+  const [hasInitialized, setHasInitialized] = React.useState(false)
 
   // Fetch workspaces list
   const fetchWorkspaces = React.useCallback(async () => {
@@ -90,60 +91,63 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const loadData = React.useCallback(async () => {
-    if (!isUserLoaded || !user) return
-
-    const list = await fetchWorkspaces()
-    setWorkspaces(list)
-
-    if (list.length === 0) {
-      setIsLoading(false)
-      if (pathname !== '/onboarding') {
-        router.push('/onboarding')
-      }
-      return
-    }
-
-    // Get active workspace ID from cookie
-    const cookieValue = document.cookie
-      .split('; ')
-      .find((row) => row.startsWith('activeWorkspaceId='))
-      ?.split('=')[1]
-
-    let selectedId = cookieValue
-
-    // If no cookie or cookie workspace does not exist in user's list, default to first workspace
-    if (!selectedId || !list.some((w) => w.id === selectedId)) {
-      selectedId = list[0].id
-      document.cookie = `activeWorkspaceId=${selectedId}; path=/; max-age=31536000; SameSite=Lax`
-    }
-
-    const details = await fetchActiveWorkspaceDetails(selectedId)
-    if (details) {
-      setActiveWorkspace(details.workspace)
-      setCurrentUserRole(details.currentUserRole)
-      setMembers(details.members)
-    } else {
-      // Retry with the first workspace in list if the cookie one failed
-      const firstId = list[0].id
-      document.cookie = `activeWorkspaceId=${firstId}; path=/; max-age=31536000; SameSite=Lax`
-      const retryDetails = await fetchActiveWorkspaceDetails(firstId)
-      if (retryDetails) {
-        setActiveWorkspace(retryDetails.workspace)
-        setCurrentUserRole(retryDetails.currentUserRole)
-        setMembers(retryDetails.members)
-      }
-    }
-
-    setIsLoading(false)
-  }, [isUserLoaded, user, fetchWorkspaces, fetchActiveWorkspaceDetails, pathname, router])
-
+  // Initial load — runs once when user is ready
   React.useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadData()
-  }, [loadData])
+    if (!isUserLoaded || !user || hasInitialized) return
 
-  const switchWorkspace = async (workspaceId: string) => {
+    const loadData = async () => {
+      const list = await fetchWorkspaces()
+      setWorkspaces(list)
+
+      if (list.length === 0) {
+        setIsLoading(false)
+        setHasInitialized(true)
+        if (pathname !== '/onboarding') {
+          router.push('/onboarding')
+        }
+        return
+      }
+
+      // Get active workspace ID from cookie
+      const cookieValue = document.cookie
+        .split('; ')
+        .find((row) => row.startsWith('activeWorkspaceId='))
+        ?.split('=')[1]
+
+      let selectedId = cookieValue
+
+      // If no cookie or cookie workspace does not exist in user's list, default to first workspace
+      if (!selectedId || !list.some((w) => w.id === selectedId)) {
+        selectedId = list[0].id
+        document.cookie = `activeWorkspaceId=${selectedId}; path=/; max-age=31536000; SameSite=Lax`
+      }
+
+      const details = await fetchActiveWorkspaceDetails(selectedId)
+      if (details) {
+        setActiveWorkspace(details.workspace)
+        setCurrentUserRole(details.currentUserRole)
+        setMembers(details.members)
+      } else {
+        // Retry with the first workspace in list if the cookie one failed
+        const firstId = list[0].id
+        document.cookie = `activeWorkspaceId=${firstId}; path=/; max-age=31536000; SameSite=Lax`
+        const retryDetails = await fetchActiveWorkspaceDetails(firstId)
+        if (retryDetails) {
+          setActiveWorkspace(retryDetails.workspace)
+          setCurrentUserRole(retryDetails.currentUserRole)
+          setMembers(retryDetails.members)
+        }
+      }
+
+      setIsLoading(false)
+      setHasInitialized(true)
+    }
+
+    loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isUserLoaded, user, hasInitialized])
+
+  const switchWorkspace = async (workspaceId: string, skipNavigation?: boolean) => {
     setIsLoading(true)
     document.cookie = `activeWorkspaceId=${workspaceId}; path=/; max-age=31536000; SameSite=Lax`
     
@@ -152,10 +156,26 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setActiveWorkspace(details.workspace)
       setCurrentUserRole(details.currentUserRole)
       setMembers(details.members)
+
+      // Also refresh the workspaces list in case it changed
+      const list = await fetchWorkspaces()
+      setWorkspaces(list)
+
       toast.success(`Switched to workspace: ${details.workspace.name}`)
       
-      // Forces Next.js router to refresh and update path data if needed
-      router.refresh()
+      // Navigate to the same sub-page under the new workspace slug
+      // Skip navigation when called from page slug-sync effects (already at correct URL)
+      if (!skipNavigation) {
+        const newSlug = details.workspace.slug
+        const currentPath = pathname
+        const segments = currentPath.split('/')
+        if (segments.length >= 2 && segments[1]) {
+          segments[1] = newSlug
+          router.push(segments.join('/'))
+        } else {
+          router.push(`/${newSlug}`)
+        }
+      }
     } else {
       toast.error('Failed to switch workspace')
     }

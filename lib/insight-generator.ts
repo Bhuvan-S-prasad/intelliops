@@ -123,7 +123,7 @@ Return a JSON object with exactly these fields:
 Return only valid JSON. No markdown wrapping.`
 
   const { text } = await generateText({
-    model: openrouter('meta-llama/llama-3.1-8b-instruct:free'),
+    model: openrouter.chat('nex-agi/nex-n2-pro:free'),
     system: systemPrompt,
     prompt: `Document Content:\n${fullContent}`,
   })
@@ -229,7 +229,7 @@ Return JSON:
 Return only valid JSON. No markdown. Maximum 8 issues.`
 
   const { text } = await generateText({
-    model: openrouter('meta-llama/llama-3.1-8b-instruct:free'),
+    model: openrouter.chat('nex-agi/nex-n2-pro:free'),
     system: systemPrompt,
     prompt: `Workspace Document Summaries:\n${combinedSummaries}`,
   })
@@ -339,7 +339,7 @@ Return JSON:
 Return only valid JSON. No markdown. Maximum 8 trends.`
 
   const { text } = await generateText({
-    model: openrouter('meta-llama/llama-3.1-8b-instruct:free'),
+    model: openrouter.chat('nex-agi/nex-n2-pro:free'),
     system: systemPrompt,
     prompt: `Workspace Document Summaries:\n${combinedSummaries}`,
   })

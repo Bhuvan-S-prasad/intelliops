@@ -17,8 +17,8 @@ import {
   AlertCircle,
   Sparkles,
   ExternalLink,
+  Image as ImageIcon,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface SearchResult {
   id: string
@@ -27,7 +27,7 @@ interface SearchResult {
   metadata: Record<string, unknown>
   chunkIndex: number
   fileName: string
-  fileType: 'PDF' | 'CSV' | 'JSON' | 'TXT' | 'LOG'
+  fileType: 'PDF' | 'CSV' | 'JSON' | 'TXT' | 'LOG' | 'IMAGE'
   similarity: number
 }
 
@@ -47,12 +47,23 @@ export default function WorkspaceSearchPage({
     if (activeWorkspace.slug !== workspaceSlug) {
       const matchingWorkspace = workspaces.find((w) => w.slug === workspaceSlug)
       if (matchingWorkspace) {
-        switchWorkspace(matchingWorkspace.id)
+        switchWorkspace(matchingWorkspace.id, true)
       } else {
         router.replace(`/${activeWorkspace.slug}/search`)
       }
     }
   }, [workspaceSlug, activeWorkspace, workspaces, isWorkspaceLoading, switchWorkspace, router])
+
+  // Update page title and metadata
+  React.useEffect(() => {
+    if (activeWorkspace) {
+      document.title = `Search — ${activeWorkspace.name} | IntelliOps`
+      const metaDesc = document.querySelector('meta[name="description"]')
+      if (metaDesc) {
+        metaDesc.setAttribute('content', `Run deep semantic searches across your uploaded database or raw content in workspace ${activeWorkspace.name}.`)
+      }
+    }
+  }, [activeWorkspace])
 
   if (isWorkspaceLoading || !activeWorkspace || activeWorkspace.slug !== workspaceSlug) {
     return (
@@ -186,6 +197,8 @@ function SearchWorkspaceContent({
         return <FileCode className="h-3.5 w-3.5 text-amber-400" />
       case 'LOG':
         return <Terminal className="h-3.5 w-3.5 text-blue-400" />
+      case 'IMAGE':
+        return <ImageIcon className="h-3.5 w-3.5 text-purple-400" />
       default:
         return <File className="h-3.5 w-3.5 text-zinc-400" />
     }

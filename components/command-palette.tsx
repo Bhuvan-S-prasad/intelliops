@@ -380,7 +380,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
           </div>
           <div className="flex items-center gap-1 text-zinc-400">
             <Sparkles className="h-3 w-3 text-indigo-400" />
-            <span>OpsIQ AI</span>
+            <span>IntelliOps AI</span>
           </div>
         </div>
       </div>

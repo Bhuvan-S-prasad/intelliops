@@ -8,6 +8,7 @@ import { parseCsv } from './parsers/csv-parser'
 import { parseJson } from './parsers/json-parser'
 import { parseText } from './parsers/text-parser'
 import { parseLog } from './parsers/log-parser'
+import { parseImage } from './parsers/image-parser'
 import { randomUUID } from 'crypto'
 import { generateFileSummary } from './insight-generator'
 
@@ -22,6 +23,7 @@ export async function processFile(fileId: string): Promise<void> {
         workspaceId: true,
         fileType: true,
         storageKey: true,
+        mimeType: true,
       },
     })
 
@@ -45,6 +47,9 @@ export async function processFile(fileId: string): Promise<void> {
         break
       case 'LOG':
         parseResult = await parseLog(buffer)
+        break
+      case 'IMAGE':
+        parseResult = await parseImage(buffer, file.mimeType)
         break
       default:
         throw new Error(`Unsupported file type: ${file.fileType}`)

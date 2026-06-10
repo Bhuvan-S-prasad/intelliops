@@ -25,7 +25,7 @@ export default function AuthLayout({
             />
           </svg>
           <span className="text-2xl font-semibold tracking-tight text-foreground">
-            OpsIQ
+            IntelliOps
           </span>
         </div>
         <p className="text-sm text-muted-foreground">

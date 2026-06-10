@@ -33,6 +33,7 @@ enum FileType {
   JSON
   TXT
   LOG
+  IMAGE
 }
 
 model User {

@@ -1,27 +1,35 @@
-import * as pdf from 'pdf-parse'
+import "server-only";
 
-type PdfParserFn = (
-  dataBuffer: Buffer,
-  options?: {
-    pagerender?: (pageData: { pageIndex: number; textContent: { items: { str: string }[] } }) => string
-    max?: number
-    version?: string
-  }
-) => Promise<{
-  text: string
-  numpages: number
-  info: Record<string, unknown>
-}>
+// pdf-parse@1.1.1 internal parser entrypoint
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import pdf from "pdf-parse/lib/pdf-parse";
 
-export async function parsePdf(buffer: Buffer): Promise<{ text: string; metadata: Record<string, unknown> }> {
-  const pdfParser = ((pdf as unknown as { default?: PdfParserFn }).default || pdf) as PdfParserFn
+export interface ParsedPdf {
+  text: string;
+  metadata: {
+    pageCount: number;
+    info?: Record<string, unknown>;
+  };
+}
 
-  const data = await pdfParser(buffer)
+interface PdfParseResult {
+  text: string;
+  numpages: number;
+  info?: unknown;
+}
+
+export async function parsePdf(buffer: Buffer): Promise<ParsedPdf> {
+  const result = (await pdf(buffer)) as PdfParseResult;
+
   return {
-    text: data.text || '',
+    text: result.text ?? "",
     metadata: {
-      pageCount: data.numpages || 1,
-      info: data.info || {},
+      pageCount: result.numpages ?? 0,
+      info:
+        result.info && typeof result.info === "object"
+          ? (result.info as Record<string, unknown>)
+          : undefined,
     },
-  }
+  };
 }

@@ -11,16 +11,26 @@ import {
 } from '@/lib/cache'
 import { randomUUID } from 'crypto'
 
+// Extend request timeout to 60 seconds for file uploads (Vercel limit is 60s max on Pro)
+export const maxDuration = 60
+
+// Disable automatic request body parsing for this route (we handle it manually)
+export const dynamic = 'force-dynamic'
+
 // Allowed MIME types and mapping to database extensions & FileType
 const MIME_TYPE_MAP: Record<
   string,
-  { ext: string; type: 'PDF' | 'CSV' | 'JSON' | 'TXT' | 'LOG' }
+  { ext: string; type: 'PDF' | 'CSV' | 'JSON' | 'TXT' | 'LOG' | 'IMAGE' }
 > = {
   'application/pdf': { ext: 'pdf', type: 'PDF' },
   'text/csv': { ext: 'csv', type: 'CSV' },
   'application/json': { ext: 'json', type: 'JSON' },
   'text/plain': { ext: 'txt', type: 'TXT' },
   'text/x-log': { ext: 'log', type: 'LOG' },
+  'image/jpeg': { ext: 'jpg', type: 'IMAGE' },
+  'image/png': { ext: 'png', type: 'IMAGE' },
+  'image/gif': { ext: 'gif', type: 'IMAGE' },
+  'image/webp': { ext: 'webp', type: 'IMAGE' },
 }
 
 // Helper to validate file content by checking actual binary bytes
@@ -50,6 +60,30 @@ async function validateFileBytes(buffer: Buffer, mimeType: string): Promise<bool
     return true
   }
 
+  // Image validation - check magic bytes for common image formats
+  if (mimeType === 'image/jpeg') {
+    // JPEG: starts with FF D8
+    return buffer[0] === 0xff && buffer[1] === 0xd8
+  }
+
+  if (mimeType === 'image/png') {
+    // PNG: 89 50 4E 47
+    return buffer[0] === 0x89 && buffer.toString('ascii', 1, 4) === 'PNG'
+  }
+
+  if (mimeType === 'image/gif') {
+    // GIF: starts with GIF87a or GIF89a
+    const header = buffer.toString('ascii', 0, 6)
+    return header === 'GIF87a' || header === 'GIF89a'
+  }
+
+  if (mimeType === 'image/webp') {
+    // WebP: RIFF...WEBP
+    const riff = buffer.toString('ascii', 0, 4)
+    const webp = buffer.toString('ascii', 8, 12)
+    return riff === 'RIFF' && webp === 'WEBP'
+  }
+
   return false
 }
 
@@ -57,7 +91,7 @@ type FileResponseItem = {
   id: string
   name: string
   originalName: string
-  fileType: 'PDF' | 'CSV' | 'JSON' | 'TXT' | 'LOG'
+  fileType: 'PDF' | 'CSV' | 'JSON' | 'TXT' | 'LOG' | 'IMAGE'
   sizeBytes: number
   status: 'QUEUED' | 'PROCESSING' | 'READY' | 'FAILED'
   chunkCount: number | null
@@ -161,8 +195,23 @@ export async function POST(
       )
     }
 
-    // 3. Parse form body
-    const formData = await req.formData()
+    // 3. Parse form body with timeout
+    let formData
+    try {
+      formData = await Promise.race([
+        req.formData(),
+        new Promise((_resolve, reject) =>
+          setTimeout(() => reject(new Error('Form data parsing timeout (30s)')), 30000)
+        ),
+      ])
+    } catch (err) {
+      console.error('Form data parsing error:', err)
+      return Response.json(
+        { error: 'Failed to parse file upload. File may be too large or request timed out.' },
+        { status: 408 } // 408 Request Timeout
+      )
+    }
+
     const fileEntry = formData.get('file')
 
     if (!fileEntry || !(fileEntry instanceof File)) {
@@ -182,8 +231,22 @@ export async function POST(
     }
 
     // 5. Read file bytes and validate content by magic signatures
-    const fileArrayBuffer = await fileEntry.arrayBuffer()
-    const buffer = Buffer.from(fileArrayBuffer)
+    let buffer: Buffer
+    try {
+      const fileArrayBuffer = await Promise.race([
+        fileEntry.arrayBuffer(),
+        new Promise((_resolve, reject) =>
+          setTimeout(() => reject(new Error('File reading timeout (30s)')), 30000)
+        ),
+      ]) as ArrayBuffer
+      buffer = Buffer.from(fileArrayBuffer)
+    } catch (err) {
+      console.error('File reading error:', err)
+      return Response.json(
+        { error: 'Failed to read file. Request timed out.' },
+        { status: 408 }
+      )
+    }
 
     const isValid = await validateFileBytes(buffer, mimeType)
     if (!isValid) {
@@ -251,7 +314,19 @@ export async function POST(
     )
   } catch (err) {
     if (err instanceof Response) return err
+    
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+    const statusCode = errorMessage.includes('timeout') ? 408 : 500
+    
     console.error('POST /api/workspaces/[workspaceId]/files error:', err)
-    return Response.json({ error: 'Internal server error' }, { status: 500 })
+    return Response.json(
+      { error: errorMessage || 'Internal server error' },
+      { 
+        status: statusCode,
+        headers: {
+          'Connection': 'close', // Close connection on error to prevent reuse
+        },
+      }
+    )
   }
 }

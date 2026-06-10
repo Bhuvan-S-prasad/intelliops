@@ -108,7 +108,9 @@ export async function POST(
           ORDER BY c.embedding <=> ${queryEmbeddingStr}::vector
           LIMIT 6
         `
+        console.log(chunks)
       }
+    
     } catch (embedErr) {
       console.warn('Vector retrieval failed. Bypassing context injection:', embedErr)
     }
@@ -119,7 +121,7 @@ export async function POST(
       .join('\n\n')
 
     // 9. Build system prompt instruction
-    const systemPrompt = `You are OpsIQ, an AI operations intelligence assistant. You help users analyse operational data — logs, reports, CSVs, and documents — that have been uploaded to their workspace.
+    const systemPrompt = `You are IntelliOps, an AI operations intelligence assistant. You help users analyse operational data — logs, reports, CSVs, and documents — that have been uploaded to their workspace.
 
 Answer the user's question based ONLY on the context provided below. If the answer is not in the context, say so clearly. Do not hallucinate information.
 
@@ -151,7 +153,7 @@ ${contextString}`
     })
 
     const result = await streamText({
-      model: openrouter('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'),
+      model: openrouter.chat('openai/gpt-oss-20b:free'),
       system: systemPrompt,
       messages: formattedMessages,
       onFinish: async ({ text }) => {

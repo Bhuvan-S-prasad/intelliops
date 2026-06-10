@@ -1,31 +1,30 @@
 'use client'
 
 import * as React from 'react'
-import { Card, CardDescription, CardTitle } from '@/components/ui/card'
-import { FolderOpen, UploadCloud } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useWorkspace } from '@/components/workspace-provider'
+import { Loader2 } from 'lucide-react'
 
-export default function FilesPage() {
+export default function FilesRedirectPage() {
+  const { activeWorkspace, isLoading } = useWorkspace()
+  const router = useRouter()
+
+  React.useEffect(() => {
+    if (isLoading) return
+
+    if (activeWorkspace) {
+      router.replace(`/${activeWorkspace.slug}/files`)
+    } else {
+      router.replace('/onboarding')
+    }
+  }, [activeWorkspace, isLoading, router])
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-100 flex items-center gap-2">
-          <FolderOpen className="h-5 w-5 text-zinc-400" />
-          File Explorer
-        </h1>
-        <p className="text-xs text-zinc-400">
-          Upload and manage your workspace datasets, PDFs, and log logs.
-        </p>
+    <div className="flex h-[50vh] items-center justify-center">
+      <div className="flex flex-col items-center gap-2">
+        <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+        <p className="text-xs text-zinc-450">Redirecting to workspace files...</p>
       </div>
-
-      <Card className="bg-zinc-900 border-zinc-800 text-zinc-100 p-8 flex flex-col items-center text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-400 mb-4">
-          <UploadCloud className="h-6 w-6" />
-        </div>
-        <CardTitle className="text-lg font-semibold mb-2">No files uploaded yet</CardTitle>
-        <CardDescription className="text-sm text-zinc-400 max-w-md">
-          Upload files here to build a knowledge base. Supported files include PDF, CSV, JSON, TXT, and LOG.
-        </CardDescription>
-      </Card>
     </div>
   )
 }
