@@ -31,12 +31,12 @@
 ## 📸 Platform Previews
 
 ![Real-time Telemetry Dashboard](https://ik.imagekit.io/wq68aygdr/projects/Screenshot%202026-06-30%20203226.png)
-*Real-time Telemetry Dashboard*
+*Landing page*
 
 <br />
 
 ![Modern Chat & File Insights UI](https://ik.imagekit.io/wq68aygdr/projects/Screenshot%202026-06-30%20203316.png)
-*Modern Chat & File Insights UI*
+*Real-time Telemetry Dashboard*
 
 </div>
 
